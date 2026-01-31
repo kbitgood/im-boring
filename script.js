@@ -819,7 +819,7 @@ function addToHistory(text, shouldSave = true) {
 /**
  * Array of 100+ weird, wacky, quirky boredom-busting ideas
  * Used when Chrome AI is not available
- * Additional 1000+ ideas are loaded from ideas.js and ideas2.js
+ * Additional 1000+ ideas are loaded from remote packs in /ideas/
  */
 const FALLBACK_IDEAS_BASE = [
     "Stage a dramatic soap opera with your houseplants as the cast. Give them names, backstories, and at least one scandalous love triangle. Bonus points if you do different voices for each plant.",
@@ -1045,12 +1045,8 @@ const FALLBACK_IDEAS_BASE = [
     "Practice your 'sophisticated person enjoying art' look while staring at random wall textures."
 ];
 
-// Combine all ideas from base + external files
-let FALLBACK_IDEAS = [
-    ...FALLBACK_IDEAS_BASE,
-    ...(typeof BOREDOM_IDEAS !== 'undefined' ? BOREDOM_IDEAS : []),
-    ...(typeof MORE_IDEAS !== 'undefined' ? MORE_IDEAS : [])
-];
+// Ideas array - starts with base, remote packs are loaded dynamically
+let FALLBACK_IDEAS = [...FALLBACK_IDEAS_BASE];
 
 // Tracking for shown ideas to avoid repeats
 let shownIdeaIndices = [];
@@ -1060,8 +1056,10 @@ let shuffledIndices = [];
    Remote Ideas Fetching
    ======================== */
 
-// Base URL for fetching ideas from GitHub Pages
-const IDEAS_BASE_URL = '/im-boring/ideas/';
+// Base URL for fetching ideas - works both on GitHub Pages and locally
+const IDEAS_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? './ideas/'
+    : '/im-boring/ideas/';
 
 // localStorage keys for remote ideas
 const REMOTE_IDEAS_STORAGE_KEY = 'im-boring-remote-ideas';
@@ -1072,6 +1070,9 @@ const MIN_IDEAS_THRESHOLD = 500;
 
 // Remote ideas loaded into memory
 let remoteIdeas = [];
+
+// Flag to prevent concurrent fetches
+let isFetchingIdeas = false;
 
 /**
  * Show the ideas loading indicator
@@ -1204,6 +1205,11 @@ async function fetchIdeaPack(packFile) {
  * Picks a random pack from available packs
  */
 async function fetchRemoteIdeas() {
+    // Prevent concurrent fetches
+    if (isFetchingIdeas) {
+        return;
+    }
+    
     // Load existing remote ideas from storage first
     remoteIdeas = loadRemoteIdeasFromStorage();
     
@@ -1221,6 +1227,7 @@ async function fetchRemoteIdeas() {
         return;
     }
     
+    isFetchingIdeas = true;
     showIdeasLoader();
     
     try {
@@ -1274,6 +1281,7 @@ async function fetchRemoteIdeas() {
     } catch (error) {
         console.error('Error fetching remote ideas:', error);
     } finally {
+        isFetchingIdeas = false;
         hideIdeasLoader();
     }
 }
@@ -1334,6 +1342,12 @@ function getNextFallbackIdea() {
     // Get the next index from shuffled array
     const nextIndex = shuffledIndices.pop();
     shownIdeaIndices.push(nextIndex);
+    
+    // Check if we need to fetch more ideas (do this in background)
+    const remaining = FALLBACK_IDEAS.length - shownIdeaIndices.length;
+    if (remaining < MIN_IDEAS_THRESHOLD) {
+        fetchRemoteIdeas();
+    }
     
     return FALLBACK_IDEAS[nextIndex];
 }
