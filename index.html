@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I'm Boring</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="main-container">
+        <!-- Button Section -->
+        <section class="button-section">
+            <div class="button-container">
+                <button id="boring-button" class="boring-button" type="button">
+                    I'm Boring
+                </button>
+            </div>
+        </section>
+
+        <!-- Loading Mascot (hidden by default) -->
+        <div id="loading-container" class="loading-container hidden">
+            <div class="loading-mascot"></div>
+            <p class="loading-text">Generating idea...</p>
+        </div>
+
+        <!-- Result Card (hidden by default) -->
+        <div id="result-container" class="result-container hidden">
+            <div class="result-card">
+                <p id="result-text" class="result-text"></p>
+            </div>
+        </div>
+
+        <!-- History Gallery -->
+        <section id="history-section" class="history-section">
+            <h2 class="history-title">Past Ideas</h2>
+            <div id="history-gallery" class="history-gallery">
+                <!-- History cards will be inserted here dynamically -->
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
