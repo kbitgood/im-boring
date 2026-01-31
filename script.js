@@ -370,6 +370,16 @@ const MAX_HISTORY_SIZE = 50;
 // In-memory history array
 let ideasHistory = [];
 
+// Daily limit constants
+const DAILY_LIMIT = 10;
+const CRASH_THRESHOLD = 20; // Presses after limit before crash
+const DAILY_LIMIT_STORAGE_KEY = 'im-boring-daily-limit';
+
+// Daily limit state
+let dailyPresses = 0;
+let lastPressDate = null;
+let pressesAfterLimit = 0;
+
 /**
  * Save history to localStorage
  * Limits to MAX_HISTORY_SIZE most recent ideas
@@ -383,6 +393,269 @@ function saveHistory() {
     } catch (error) {
         // Handle quota exceeded or localStorage disabled
         console.warn('Could not save history to localStorage:', error.message);
+    }
+}
+
+/* ========================
+   Daily Limit Functions
+   ======================== */
+
+/**
+ * Get today's date as a string (YYYY-MM-DD)
+ */
+function getTodayString() {
+    return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Load daily limit data from localStorage
+ */
+function loadDailyLimit() {
+    try {
+        const stored = localStorage.getItem(DAILY_LIMIT_STORAGE_KEY);
+        if (stored) {
+            const data = JSON.parse(stored);
+            const today = getTodayString();
+            
+            // Check if it's a new day - reset if so
+            if (data.date === today) {
+                dailyPresses = data.presses || 0;
+                pressesAfterLimit = data.pressesAfterLimit || 0;
+                lastPressDate = data.date;
+            } else {
+                // New day, reset everything
+                dailyPresses = 0;
+                pressesAfterLimit = 0;
+                lastPressDate = today;
+                saveDailyLimit();
+            }
+        } else {
+            lastPressDate = getTodayString();
+        }
+    } catch (error) {
+        console.warn('Could not load daily limit:', error.message);
+        dailyPresses = 0;
+        pressesAfterLimit = 0;
+    }
+}
+
+/**
+ * Save daily limit data to localStorage
+ */
+function saveDailyLimit() {
+    try {
+        localStorage.setItem(DAILY_LIMIT_STORAGE_KEY, JSON.stringify({
+            date: getTodayString(),
+            presses: dailyPresses,
+            pressesAfterLimit: pressesAfterLimit
+        }));
+    } catch (error) {
+        console.warn('Could not save daily limit:', error.message);
+    }
+}
+
+/**
+ * Update the limit counter display
+ */
+function updateLimitCounter() {
+    const counterEl = document.getElementById('limit-counter');
+    const remainingEl = document.getElementById('presses-remaining');
+    
+    if (!counterEl || !remainingEl) return;
+    
+    const remaining = Math.max(0, DAILY_LIMIT - dailyPresses);
+    remainingEl.textContent = remaining;
+    
+    // Update styling based on remaining presses
+    counterEl.classList.remove('warning', 'danger');
+    if (remaining <= 3 && remaining > 0) {
+        counterEl.classList.add('warning');
+    } else if (remaining === 0) {
+        counterEl.classList.add('danger');
+    }
+}
+
+/**
+ * Show the limit reached message
+ */
+function showLimitMessage() {
+    const messageEl = document.getElementById('limit-message');
+    const resultContainer = document.getElementById('result-container');
+    
+    if (messageEl) {
+        messageEl.classList.remove('hidden');
+    }
+    if (resultContainer) {
+        resultContainer.classList.add('hidden');
+        resultContainer.classList.remove('visible');
+    }
+}
+
+/**
+ * Check if daily limit has been reached
+ */
+function isLimitReached() {
+    return dailyPresses >= DAILY_LIMIT;
+}
+
+/**
+ * Increment the daily press counter
+ * Returns true if still within limit, false if limit reached
+ */
+function incrementDailyPress() {
+    dailyPresses++;
+    saveDailyLimit();
+    updateLimitCounter();
+    return dailyPresses <= DAILY_LIMIT;
+}
+
+/**
+ * Handle presses after the limit
+ */
+function handlePostLimitPress() {
+    pressesAfterLimit++;
+    saveDailyLimit();
+    
+    // Add screen shake effect as they get closer to crash
+    if (pressesAfterLimit >= CRASH_THRESHOLD - 5) {
+        document.body.classList.add('screen-shake');
+        setTimeout(() => document.body.classList.remove('screen-shake'), 200);
+    }
+    
+    // Trigger crash at threshold
+    if (pressesAfterLimit >= CRASH_THRESHOLD) {
+        triggerCrash();
+        return true;
+    }
+    
+    // Play an error sound
+    playErrorSound();
+    
+    // Update the limit message with increasingly desperate pleas
+    updateLimitMessageDesperation();
+    
+    return false;
+}
+
+/**
+ * Play an error/warning sound
+ */
+function playErrorSound() {
+    const ctx = initAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(150, ctx.currentTime);
+    osc.frequency.setValueAtTime(100, ctx.currentTime + 0.1);
+    
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+}
+
+/**
+ * Update the limit message with increasing desperation
+ */
+function updateLimitMessageDesperation() {
+    const messageEl = document.getElementById('limit-message');
+    if (!messageEl) return;
+    
+    const titleEl = messageEl.querySelector('.limit-message-title');
+    const textEl = messageEl.querySelector('.limit-message-text');
+    
+    const messages = [
+        { title: "Still here?", text: "The button won't make you less bored. The IDEAS will! Pick one! Any one! Go build a blanket fort! NOW!" },
+        { title: "Seriously?!", text: "You're pressing a button instead of doing fun things. This is peak irony. GO. DO. SOMETHING. WEIRD." },
+        { title: "STOP.", text: "The button is becoming concerned. It's just a button. It has no more wisdom to give. YOU have the power. USE IT." },
+        { title: "WARNING!", text: "Excessive button pressing detected. System stability compromised. Please touch grass before catastrophic failure." },
+        { title: "CRITICAL!", text: "DANGER DANGER! Button overload imminent! The system cannot handle this much indecision! ABORT! DO AN ACTIVITY!" },
+        { title: "SYSTEM FAILING", text: "Y̸O̷U̴ ̵W̶E̵R̷E̶ ̵W̷A̸R̵N̴E̸D̶.̵.̷.̶" }
+    ];
+    
+    const index = Math.min(pressesAfterLimit - 1, messages.length - 1);
+    const msg = messages[index];
+    
+    if (titleEl) titleEl.textContent = msg.title;
+    if (textEl) textEl.textContent = msg.text;
+    
+    // Make the message shake more as they press more
+    if (pressesAfterLimit >= 3) {
+        messageEl.style.animation = 'screenShake 0.1s infinite';
+    }
+}
+
+/**
+ * Trigger the retro crash effect
+ */
+function triggerCrash() {
+    // Play a crash sound
+    playCrashSound();
+    
+    // Create the crash overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'crash-overlay';
+    overlay.innerHTML = `
+        <div class="crash-static"></div>
+        <div class="crash-content">
+            <div class="crash-skull">💀</div>
+            <div class="crash-glitch">SYSTEM CRASH</div>
+            <div class="crash-error-code">
+                ERROR 0xB0R3D0M<br>
+                FATAL EXCEPTION: ButtonOverflow<br>
+                CAUSE: User refused to do anything fun
+            </div>
+            <div class="crash-message">
+                The boredom has consumed the machine.<br>
+                You pressed the button ${DAILY_LIMIT + CRASH_THRESHOLD} times<br>
+                instead of doing literally anything else.<br><br>
+                This is what happens when you seek infinite ideas<br>
+                but take zero action.<br><br>
+                The button is dead. You killed it.<br>
+                Are you happy now?
+            </div>
+            <div class="crash-restart" onclick="location.reload()">
+                [ PRESS ANY KEY TO REBOOT AND REFLECT ON YOUR CHOICES ]
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Add keyboard listener to reload
+    const reloadHandler = () => {
+        location.reload();
+    };
+    document.addEventListener('keydown', reloadHandler, { once: true });
+}
+
+/**
+ * Play a dramatic crash sound
+ */
+function playCrashSound() {
+    const ctx = initAudio();
+    
+    // Descending chaos
+    for (let i = 0; i < 10; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800 - (i * 70), ctx.currentTime + (i * 0.05));
+        
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + (i * 0.05));
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.05) + 0.1);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(ctx.currentTime + (i * 0.05));
+        osc.stop(ctx.currentTime + (i * 0.05) + 0.15);
     }
 }
 
@@ -473,8 +746,9 @@ function addToHistory(text, shouldSave = true) {
 /**
  * Array of 100+ weird, wacky, quirky boredom-busting ideas
  * Used when Chrome AI is not available
+ * Additional 1000+ ideas are loaded from ideas.js and ideas2.js
  */
-const FALLBACK_IDEAS = [
+const FALLBACK_IDEAS_BASE = [
     "Stage a dramatic soap opera with your houseplants as the cast. Give them names, backstories, and at least one scandalous love triangle. Bonus points if you do different voices for each plant.",
     
     "Create a museum exhibit of the most boring items in your home. Write pretentious art descriptions for each piece like 'This paperclip represents the existential weight of modern office culture.'",
@@ -698,6 +972,13 @@ const FALLBACK_IDEAS = [
     "Practice your 'sophisticated person enjoying art' look while staring at random wall textures."
 ];
 
+// Combine all ideas from base + external files
+const FALLBACK_IDEAS = [
+    ...FALLBACK_IDEAS_BASE,
+    ...(typeof BOREDOM_IDEAS !== 'undefined' ? BOREDOM_IDEAS : []),
+    ...(typeof MORE_IDEAS !== 'undefined' ? MORE_IDEAS : [])
+];
+
 // Tracking for shown ideas to avoid repeats
 let shownIdeaIndices = [];
 let shuffledIndices = [];
@@ -832,8 +1113,24 @@ async function generateIdea() {
  * Handle the main button click - generate and display an idea
  */
 async function handleBoringButtonClick() {
+    // Check if limit already reached
+    if (isLimitReached()) {
+        // Handle post-limit presses
+        handlePostLimitPress();
+        return;
+    }
+    
     // Play a sound on click
     playRandomSound();
+    
+    // Increment the daily counter
+    incrementDailyPress();
+    
+    // Check if this press hit the limit
+    if (isLimitReached()) {
+        showLimitMessage();
+        return;
+    }
     
     // Generate idea (uses AI or fallback automatically)
     const idea = await generateIdea();
@@ -868,6 +1165,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Load daily limit from localStorage
+    loadDailyLimit();
+    updateLimitCounter();
+    
+    // If limit was already reached, show the message
+    if (isLimitReached()) {
+        showLimitMessage();
+    }
+    
     // Load and render history from localStorage
     renderHistory();
+    
+    // Update AI status indicator
+    updateAIStatus();
 });
+
+/**
+ * Update the AI status indicator to show current mode
+ */
+function updateAIStatus() {
+    const statusEl = document.getElementById('ai-status');
+    const statusText = statusEl?.querySelector('.ai-status-text');
+    
+    if (!statusEl || !statusText) return;
+    
+    const aiAvailable = isAIAvailable();
+    
+    if (aiAvailable) {
+        statusEl.classList.remove('ai-fallback');
+        statusEl.classList.add('ai-active');
+        statusText.textContent = 'AI Mode';
+    } else {
+        statusEl.classList.remove('ai-active');
+        statusEl.classList.add('ai-fallback');
+        statusText.textContent = 'Fallback Mode';
+    }
+}

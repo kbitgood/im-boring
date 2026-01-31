@@ -25,6 +25,10 @@
         <header class="page-header">
             <h1 class="page-title">I'm Boring</h1>
             <p class="page-subtitle">Press the button for a boredom-busting idea!</p>
+            <div id="ai-status" class="ai-status" aria-live="polite">
+                <span class="ai-status-dot"></span>
+                <span class="ai-status-text">Checking AI...</span>
+            </div>
         </header>
 
         <!-- Button Section -->
@@ -39,7 +43,22 @@
                     Press this button to generate a random, quirky activity idea
                 </span>
             </div>
+            <div id="limit-counter" class="limit-counter" aria-live="polite">
+                <span class="limit-counter-text"><span id="presses-remaining">10</span> ideas left today</span>
+            </div>
         </section>
+
+        <!-- Limit Reached Message (hidden by default) -->
+        <div id="limit-message" class="limit-message hidden" role="alert">
+            <h2 class="limit-message-title">Whoa there, button masher!</h2>
+            <p class="limit-message-text">
+                You've collected 10 amazing ideas today! But here's the thing... 
+                the button isn't the cure for boredom. THE IDEAS ARE! 
+                Go do one of them! Touch grass! Build a sock puppet empire! 
+                Interview your toaster! The button will be here tomorrow, 
+                but adventure awaits RIGHT NOW!
+            </p>
+        </div>
 
         <!-- Loading Mascot (hidden by default) -->
         <div id="loading-container" class="loading-container hidden" role="status" aria-live="polite">
@@ -65,6 +84,8 @@
         </section>
     </main>
 
+    <script src="ideas.js"></script>
+    <script src="ideas2.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
