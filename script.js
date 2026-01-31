@@ -1046,7 +1046,7 @@ const FALLBACK_IDEAS_BASE = [
 ];
 
 // Combine all ideas from base + external files
-const FALLBACK_IDEAS = [
+let FALLBACK_IDEAS = [
     ...FALLBACK_IDEAS_BASE,
     ...(typeof BOREDOM_IDEAS !== 'undefined' ? BOREDOM_IDEAS : []),
     ...(typeof MORE_IDEAS !== 'undefined' ? MORE_IDEAS : [])
@@ -1055,6 +1055,245 @@ const FALLBACK_IDEAS = [
 // Tracking for shown ideas to avoid repeats
 let shownIdeaIndices = [];
 let shuffledIndices = [];
+
+/* ========================
+   Remote Ideas Fetching
+   ======================== */
+
+// Base URL for fetching ideas from GitHub Pages
+const IDEAS_BASE_URL = '/im-boring/ideas/';
+
+// localStorage keys for remote ideas
+const REMOTE_IDEAS_STORAGE_KEY = 'im-boring-remote-ideas';
+const DOWNLOADED_PACKS_KEY = 'im-boring-downloaded-packs';
+
+// Remote ideas loaded into memory
+let remoteIdeas = [];
+
+/**
+ * Show the ideas loading indicator
+ */
+function showIdeasLoader() {
+    const loader = document.getElementById('ideas-loader');
+    if (loader) {
+        loader.classList.remove('hidden');
+    }
+}
+
+/**
+ * Hide the ideas loading indicator
+ */
+function hideIdeasLoader() {
+    const loader = document.getElementById('ideas-loader');
+    if (loader) {
+        loader.classList.add('hidden');
+    }
+}
+
+/**
+ * Load previously downloaded remote ideas from localStorage
+ * @returns {string[]} Array of remote ideas
+ */
+function loadRemoteIdeasFromStorage() {
+    try {
+        const stored = localStorage.getItem(REMOTE_IDEAS_STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load remote ideas from storage:', error.message);
+    }
+    return [];
+}
+
+/**
+ * Save remote ideas to localStorage
+ * @param {string[]} ideas - Array of ideas to save
+ */
+function saveRemoteIdeasToStorage(ideas) {
+    try {
+        localStorage.setItem(REMOTE_IDEAS_STORAGE_KEY, JSON.stringify(ideas));
+    } catch (error) {
+        console.warn('Could not save remote ideas to storage:', error.message);
+    }
+}
+
+/**
+ * Get the list of already downloaded pack IDs
+ * @returns {string[]} Array of pack IDs
+ */
+function getDownloadedPacks() {
+    try {
+        const stored = localStorage.getItem(DOWNLOADED_PACKS_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load downloaded packs list:', error.message);
+    }
+    return [];
+}
+
+/**
+ * Mark a pack as downloaded
+ * @param {string} packId - The pack ID to mark as downloaded
+ */
+function markPackDownloaded(packId) {
+    try {
+        const packs = getDownloadedPacks();
+        if (!packs.includes(packId)) {
+            packs.push(packId);
+            localStorage.setItem(DOWNLOADED_PACKS_KEY, JSON.stringify(packs));
+        }
+    } catch (error) {
+        console.warn('Could not save downloaded pack:', error.message);
+    }
+}
+
+/**
+ * Fetch the ideas index from the remote server
+ * @returns {Promise<{version: number, packs: string[]}|null>} The index or null on failure
+ */
+async function fetchIdeasIndex() {
+    try {
+        const response = await fetch(IDEAS_BASE_URL + 'index.json', {
+            cache: 'no-store' // Always get fresh index
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.warn('Could not fetch ideas index:', error.message);
+        return null;
+    }
+}
+
+/**
+ * Fetch a specific idea pack
+ * @param {string} packFile - The pack filename (e.g., "pack-001.json")
+ * @returns {Promise<{id: string, name: string, ideas: string[]}|null>} The pack or null on failure
+ */
+async function fetchIdeaPack(packFile) {
+    try {
+        const response = await fetch(IDEAS_BASE_URL + packFile, {
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.warn(`Could not fetch idea pack ${packFile}:`, error.message);
+        return null;
+    }
+}
+
+/**
+ * Check for and download new idea packs from the remote server
+ * Only downloads packs that haven't been downloaded before
+ */
+async function fetchRemoteIdeas() {
+    showIdeasLoader();
+    
+    try {
+        // Load existing remote ideas from storage first
+        remoteIdeas = loadRemoteIdeasFromStorage();
+        
+        // Merge with FALLBACK_IDEAS if we have any
+        if (remoteIdeas.length > 0) {
+            mergeRemoteIdeas();
+        }
+        
+        // Fetch the index to see what packs are available
+        const index = await fetchIdeasIndex();
+        if (!index || !index.packs || !Array.isArray(index.packs)) {
+            console.log('No remote ideas index found or invalid format');
+            return;
+        }
+        
+        // Get list of already downloaded packs
+        const downloadedPacks = getDownloadedPacks();
+        
+        // Find new packs we haven't downloaded yet
+        const newPacks = index.packs.filter(pack => {
+            // Extract pack ID from filename (e.g., "pack-001.json" -> "pack-001")
+            const packId = pack.replace('.json', '');
+            return !downloadedPacks.includes(packId);
+        });
+        
+        if (newPacks.length === 0) {
+            console.log('No new idea packs to download');
+            return;
+        }
+        
+        console.log(`Found ${newPacks.length} new idea pack(s) to download`);
+        
+        // Download each new pack
+        let newIdeasCount = 0;
+        for (const packFile of newPacks) {
+            const pack = await fetchIdeaPack(packFile);
+            if (pack && pack.ideas && Array.isArray(pack.ideas)) {
+                // Add new ideas to our remote ideas array
+                remoteIdeas.push(...pack.ideas);
+                newIdeasCount += pack.ideas.length;
+                
+                // Mark this pack as downloaded
+                const packId = pack.id || packFile.replace('.json', '');
+                markPackDownloaded(packId);
+                
+                console.log(`Downloaded pack "${pack.name || packId}" with ${pack.ideas.length} ideas`);
+            }
+        }
+        
+        if (newIdeasCount > 0) {
+            // Save updated remote ideas to storage
+            saveRemoteIdeasToStorage(remoteIdeas);
+            
+            // Merge with fallback ideas
+            mergeRemoteIdeas();
+            
+            console.log(`Added ${newIdeasCount} new ideas! Total ideas: ${FALLBACK_IDEAS.length}`);
+        }
+        
+    } catch (error) {
+        console.error('Error fetching remote ideas:', error);
+    } finally {
+        hideIdeasLoader();
+    }
+}
+
+/**
+ * Merge remote ideas into the FALLBACK_IDEAS array
+ * Avoids duplicates
+ */
+function mergeRemoteIdeas() {
+    // Create a Set of existing ideas for fast lookup
+    const existingIdeas = new Set(FALLBACK_IDEAS);
+    
+    // Add only new ideas
+    let addedCount = 0;
+    for (const idea of remoteIdeas) {
+        if (!existingIdeas.has(idea)) {
+            FALLBACK_IDEAS.push(idea);
+            existingIdeas.add(idea);
+            addedCount++;
+        }
+    }
+    
+    if (addedCount > 0) {
+        // Reset shuffle so new ideas can be included
+        shuffledIndices = [];
+        shownIdeaIndices = [];
+        console.log(`Merged ${addedCount} remote ideas into fallback pool`);
+    }
+}
 
 /**
  * Fisher-Yates shuffle algorithm to randomize array
@@ -1272,4 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load and render history from localStorage
     renderHistory();
+    
+    // Fetch new ideas from remote server
+    fetchRemoteIdeas();
 });

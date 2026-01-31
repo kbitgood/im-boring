@@ -63,6 +63,63 @@ body {
 }
 
 /* ========================
+   Ideas Loading Indicator
+   ======================== */
+.ideas-loader {
+    position: fixed;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--purple);
+    border-radius: 20px;
+    box-shadow: 0 0 10px rgba(185, 103, 255, 0.3);
+}
+
+.ideas-loader.hidden {
+    display: none !important;
+}
+
+.ideas-loader-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    animation: ideasLoaderPulse 1s ease-in-out infinite;
+}
+
+.ideas-loader-text {
+    font-family: var(--font-pixel);
+    font-size: 0.35rem;
+    color: var(--cyan-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@keyframes ideasLoaderPulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
+/* Tablet */
+@media (min-width: 640px) {
+    .ideas-loader {
+        top: var(--spacing-md);
+        right: var(--spacing-md);
+        padding: 0.5rem 1rem;
+    }
+    
+    .ideas-loader-text {
+        font-size: 0.4rem;
+    }
+}
+
+/* ========================
    Starfield Background
    ======================== */
 .starfield {
