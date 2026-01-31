@@ -1,6 +1,7 @@
 {
   "version": 1,
   "packs": [
+    "pack-000.json",
     "pack-001.json",
     "pack-002.json",
     "pack-003.json",
@@ -24,6 +25,11 @@
     "pack-022.json",
     "pack-024.json",
     "pack-025.json",
-    "pack-026.json"
+    "pack-026.json",
+    "pack-027.json",
+    "pack-028.json",
+    "pack-029.json",
+    "pack-030.json",
+    "pack-032.json"
   ]
 }

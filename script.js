@@ -424,21 +424,23 @@ function handleHistoryCardClick(text) {
 // localStorage key for history
 const HISTORY_STORAGE_KEY = 'im-boring-history';
 
-// Maximum number of ideas to store
-const MAX_HISTORY_SIZE = 50;
+// Maximum number of ideas to store and display
+const MAX_HISTORY_SIZE = 15;
 
 // In-memory history array
 let ideasHistory = [];
 
-// Daily limit constants
-const DAILY_LIMIT = 10;
+// Rate limit constants
+const RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 const CRASH_THRESHOLD = 20; // Presses after limit before crash
-const DAILY_LIMIT_STORAGE_KEY = 'im-boring-daily-limit';
+const RATE_LIMIT_STORAGE_KEY = 'im-boring-rate-limit';
 
-// Daily limit state
-let dailyPresses = 0;
-let lastPressDate = null;
+// Rate limit state
+let periodPresses = 0;
+let periodStartTime = null; // Timestamp when the current period started
 let pressesAfterLimit = 0;
+let countdownInterval = null; // Interval for updating the countdown timer
 
 /**
  * Save history to localStorage
@@ -461,56 +463,100 @@ function saveHistory() {
    ======================== */
 
 /**
- * Get today's date as a string (YYYY-MM-DD)
+ * Get current timestamp in milliseconds
  */
-function getTodayString() {
-    return new Date().toISOString().split('T')[0];
+function getCurrentTime() {
+    return Date.now();
 }
 
 /**
- * Load daily limit data from localStorage
+ * Check if the current rate limit period has expired
+ * @returns {boolean} True if the period has expired (4+ hours since start)
  */
-function loadDailyLimit() {
+function isPeriodExpired() {
+    if (!periodStartTime) return true;
+    return (getCurrentTime() - periodStartTime) >= RATE_LIMIT_WINDOW_MS;
+}
+
+/**
+ * Get time remaining until the period resets
+ * @returns {number} Milliseconds remaining, or 0 if period expired
+ */
+function getTimeRemaining() {
+    if (!periodStartTime) return 0;
+    const elapsed = getCurrentTime() - periodStartTime;
+    const remaining = RATE_LIMIT_WINDOW_MS - elapsed;
+    return Math.max(0, remaining);
+}
+
+/**
+ * Format milliseconds into a human-readable countdown string
+ * @param {number} ms - Milliseconds to format
+ * @returns {string} Formatted string like "3h 45m 12s"
+ */
+function formatTimeRemaining(ms) {
+    if (ms <= 0) return 'now';
+    
+    const seconds = Math.floor((ms / 1000) % 60);
+    const minutes = Math.floor((ms / (1000 * 60)) % 60);
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+    
+    return parts.join(' ');
+}
+
+/**
+ * Load rate limit data from localStorage
+ */
+function loadRateLimit() {
     try {
-        const stored = localStorage.getItem(DAILY_LIMIT_STORAGE_KEY);
+        const stored = localStorage.getItem(RATE_LIMIT_STORAGE_KEY);
         if (stored) {
             const data = JSON.parse(stored);
-            const today = getTodayString();
             
-            // Check if it's a new day - reset if so
-            if (data.date === today) {
-                dailyPresses = data.presses || 0;
-                pressesAfterLimit = data.pressesAfterLimit || 0;
-                lastPressDate = data.date;
-            } else {
-                // New day, reset everything
-                dailyPresses = 0;
+            // Check if the period has expired
+            const periodStart = data.periodStartTime || 0;
+            const elapsed = getCurrentTime() - periodStart;
+            
+            if (elapsed >= RATE_LIMIT_WINDOW_MS) {
+                // Period expired, reset everything
+                periodPresses = 0;
                 pressesAfterLimit = 0;
-                lastPressDate = today;
-                saveDailyLimit();
+                periodStartTime = null;
+                saveRateLimit();
+            } else {
+                // Still in the same period
+                periodPresses = data.presses || 0;
+                pressesAfterLimit = data.pressesAfterLimit || 0;
+                periodStartTime = periodStart;
             }
         } else {
-            lastPressDate = getTodayString();
+            periodStartTime = null;
         }
     } catch (error) {
-        console.warn('Could not load daily limit:', error.message);
-        dailyPresses = 0;
+        console.warn('Could not load rate limit:', error.message);
+        periodPresses = 0;
         pressesAfterLimit = 0;
+        periodStartTime = null;
     }
 }
 
 /**
- * Save daily limit data to localStorage
+ * Save rate limit data to localStorage
  */
-function saveDailyLimit() {
+function saveRateLimit() {
     try {
-        localStorage.setItem(DAILY_LIMIT_STORAGE_KEY, JSON.stringify({
-            date: getTodayString(),
-            presses: dailyPresses,
+        localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify({
+            periodStartTime: periodStartTime,
+            presses: periodPresses,
             pressesAfterLimit: pressesAfterLimit
         }));
     } catch (error) {
-        console.warn('Could not save daily limit:', error.message);
+        console.warn('Could not save rate limit:', error.message);
     }
 }
 
@@ -520,10 +566,11 @@ function saveDailyLimit() {
 function updateLimitCounter() {
     const counterEl = document.getElementById('limit-counter');
     const remainingEl = document.getElementById('presses-remaining');
+    const counterTextEl = counterEl?.querySelector('.limit-counter-text');
     
     if (!counterEl || !remainingEl) return;
     
-    const remaining = Math.max(0, DAILY_LIMIT - dailyPresses);
+    const remaining = Math.max(0, RATE_LIMIT - periodPresses);
     remainingEl.textContent = remaining;
     
     // Update styling based on remaining presses
@@ -532,6 +579,77 @@ function updateLimitCounter() {
         counterEl.classList.add('warning');
     } else if (remaining === 0) {
         counterEl.classList.add('danger');
+    }
+    
+    // Update countdown timer display
+    updateCountdownDisplay();
+}
+
+/**
+ * Update the countdown timer display
+ */
+function updateCountdownDisplay() {
+    const timerEl = document.getElementById('countdown-timer');
+    const counterTextEl = document.querySelector('.limit-counter-text');
+    
+    if (!timerEl) return;
+    
+    const remaining = getTimeRemaining();
+    const pressesRemaining = Math.max(0, RATE_LIMIT - periodPresses);
+    
+    if (pressesRemaining === 0 && remaining > 0) {
+        // Show countdown when limit is reached
+        timerEl.textContent = `Resets in ${formatTimeRemaining(remaining)}`;
+        timerEl.classList.remove('hidden');
+        startCountdownTimer();
+    } else if (pressesRemaining > 0 && periodStartTime && remaining > 0) {
+        // Show subtle countdown even when presses remain
+        timerEl.textContent = `Resets in ${formatTimeRemaining(remaining)}`;
+        timerEl.classList.remove('hidden');
+        startCountdownTimer();
+    } else {
+        timerEl.classList.add('hidden');
+        stopCountdownTimer();
+    }
+}
+
+/**
+ * Start the countdown timer interval
+ */
+function startCountdownTimer() {
+    if (countdownInterval) return; // Already running
+    
+    countdownInterval = setInterval(() => {
+        const remaining = getTimeRemaining();
+        const timerEl = document.getElementById('countdown-timer');
+        
+        if (remaining <= 0) {
+            // Period expired, reset and refresh
+            stopCountdownTimer();
+            loadRateLimit();
+            updateLimitCounter();
+            
+            // Hide limit message if it was showing
+            const messageEl = document.getElementById('limit-message');
+            if (messageEl) {
+                messageEl.classList.add('hidden');
+            }
+            return;
+        }
+        
+        if (timerEl) {
+            timerEl.textContent = `Resets in ${formatTimeRemaining(remaining)}`;
+        }
+    }, 1000);
+}
+
+/**
+ * Stop the countdown timer interval
+ */
+function stopCountdownTimer() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
     }
 }
 
@@ -552,21 +670,43 @@ function showLimitMessage() {
 }
 
 /**
- * Check if daily limit has been reached
+ * Check if rate limit has been reached
  */
 function isLimitReached() {
-    return dailyPresses >= DAILY_LIMIT;
+    // First check if period expired
+    if (isPeriodExpired()) {
+        // Reset for new period
+        periodPresses = 0;
+        pressesAfterLimit = 0;
+        periodStartTime = null;
+        saveRateLimit();
+        
+        // Hide the limit message if showing
+        const messageEl = document.getElementById('limit-message');
+        if (messageEl) {
+            messageEl.classList.add('hidden');
+        }
+        
+        updateLimitCounter();
+        return false;
+    }
+    return periodPresses >= RATE_LIMIT;
 }
 
 /**
- * Increment the daily press counter
+ * Increment the press counter
  * Returns true if still within limit, false if limit reached
  */
-function incrementDailyPress() {
-    dailyPresses++;
-    saveDailyLimit();
+function incrementPress() {
+    // Start a new period if needed
+    if (!periodStartTime) {
+        periodStartTime = getCurrentTime();
+    }
+    
+    periodPresses++;
+    saveRateLimit();
     updateLimitCounter();
-    return dailyPresses <= DAILY_LIMIT;
+    return periodPresses <= RATE_LIMIT;
 }
 
 /**
@@ -574,7 +714,7 @@ function incrementDailyPress() {
  */
 function handlePostLimitPress() {
     pressesAfterLimit++;
-    saveDailyLimit();
+    saveRateLimit();
     
     // Add screen shake effect as they get closer to crash
     if (pressesAfterLimit >= CRASH_THRESHOLD - 5) {
@@ -672,7 +812,7 @@ function triggerCrash() {
             </div>
             <div class="crash-message">
                 The boredom has consumed the machine.<br>
-                You pressed the button ${DAILY_LIMIT + CRASH_THRESHOLD} times<br>
+                You pressed the button ${RATE_LIMIT + CRASH_THRESHOLD} times<br>
                 instead of doing literally anything else.<br><br>
                 This is what happens when you seek infinite ideas<br>
                 but take zero action.<br><br>
@@ -750,8 +890,7 @@ function loadHistory() {
  */
 function renderHistory() {
     const history = loadHistory();
-    // Render in reverse order so newest appears first
-    // (history is stored newest-first, so we iterate normally)
+    // Render ideas (history is stored newest-first, so we iterate normally)
     history.forEach((idea) => {
         addToHistory(idea, false); // false = don't save again
     });
@@ -760,6 +899,7 @@ function renderHistory() {
 /**
  * Add an idea to the history gallery
  * Creates a new card and inserts it at the beginning (most recent first)
+ * Stores and displays up to MAX_HISTORY_SIZE ideas
  * @param {string} text - The idea text to add to history
  * @param {boolean} shouldSave - Whether to save to localStorage (default: true)
  */
@@ -780,6 +920,13 @@ function addToHistory(text, shouldSave = true) {
         }
         // Persist to localStorage
         saveHistory();
+        
+        // Remove oldest displayed card if we're at the limit
+        const displayedCards = historyGallery.querySelectorAll('.history-card');
+        if (displayedCards.length >= MAX_HISTORY_SIZE) {
+            // Remove the last (oldest) card
+            historyGallery.removeChild(displayedCards[displayedCards.length - 1]);
+        }
     }
     
     // Create the history card element
@@ -813,247 +960,7 @@ function addToHistory(text, shouldSave = true) {
 }
 
 /* ========================
-   Fallback Ideas System
-   ======================== */
-
-/**
- * Array of 100+ weird, wacky, quirky boredom-busting ideas
- * Used when Chrome AI is not available
- * Additional 1000+ ideas are loaded from remote packs in /ideas/
- */
-const FALLBACK_IDEAS_BASE = [
-    "Stage a dramatic soap opera with your houseplants as the cast. Give them names, backstories, and at least one scandalous love triangle. Bonus points if you do different voices for each plant.",
-    
-    "Create a museum exhibit of the most boring items in your home. Write pretentious art descriptions for each piece like 'This paperclip represents the existential weight of modern office culture.'",
-    
-    "Become a nature documentary narrator for your pets. Follow them around in a hushed British accent describing their every mundane action as if it were a survival mission in the wild.",
-    
-    "Host a fashion show featuring outfits made entirely from things in your kitchen. Strut down your hallway runway wearing a garbage bag gown and colander hat. Work it!",
-    
-    "Write a strongly-worded complaint letter to gravity for all the times it has wronged you. List specific incidents like dropped phones and stubbed toes. Demand compensation.",
-    
-    "Practice your Oscar acceptance speech in the mirror using increasingly ridiculous categories. Start with Best Actor and work your way to 'Best Performance While Making a Sandwich.'",
-    
-    "Create an elaborate trap for your future self to find later. Hide cryptic notes, draw fake treasure maps, and leave yourself utterly confused in three months.",
-    
-    "Interview your reflection as if they're a celebrity. Ask hard-hitting questions about their skincare routine and their controversial stance on whether water is wet.",
-    
-    "Start a one-person flash mob in your living room. Choose the most dramatic song you can find and commit fully to the choreography, even if you're making it up as you go.",
-    
-    "Write a epic poem about the last meal you ate. Use grandiose language like 'And lo, the humble sandwich didst satisfy mine hunger most righteously.'",
-    
-    "Reorganize your bookshelf by color, then by how much you think each book weighs without actually weighing them. Trust your instincts. They're probably wrong.",
-    
-    "Create a secret handshake with yourself involving at least seven distinct moves. Practice until you can do it smoothly, then never tell anyone about it.",
-    
-    "Host a TED Talk for an audience of stuffed animals or objects. Present on a topic you know absolutely nothing about and present it with unearned confidence.",
-    
-    "Draw a detailed map of an imaginary country, complete with bizarre landmarks like 'The Valley of Lost Socks' and 'Mount Never-Reply-To-Emails.'",
-    
-    "Learn to say 'Where is the bathroom?' in the most obscure languages you can find. Prepare for a very specific type of international emergency.",
-    
-    "Compose a theme song for yourself and hum it dramatically every time you enter a room. Gradually increase the production value over the day.",
-    
-    "Build a tiny fort and pretend you're a giant. Carefully interact with tiny furniture. Have tiny snacks. Live your best giant life.",
-    
-    "Create a fake radio show where you're the host, caller, and musical guest. Interview yourself with hard-hitting questions about your breakfast choices.",
-    
-    "Design a new flag for your bedroom. Write a constitution for your personal territory. Declare independence from the living room.",
-    
-    "Practice walking in slow motion like you're in an action movie. Add your own explosion sound effects. Duck for cover behind the couch.",
-    
-    "Write a negative Yelp review for a place in your imagination. Rate the service at the 'Restaurant at the End of Your Hallway.' Two stars, the ambiance was lacking.",
-    
-    "Create a new holiday and fully celebrate it right now. Write traditions, sing songs you invent on the spot, and eat ceremonial snacks.",
-    
-    "Pretend you're a time traveler from the past discovering modern objects for the first time. Document your amazement at the magic glowing rectangle (your phone).",
-    
-    "Stack everything stackable in your home into one precarious tower. Name it. Take a photo for posterity. Accept that it will fall.",
-    
-    "Write a villain origin story for your most annoying household appliance. That printer didn't choose evil, evil chose it.",
-    
-    "Host a cooking show where you narrate making the simplest possible meal with maximum dramatic flair. 'Today, we dare to boil... water.'",
-    
-    "Create personas for your fingers and put on a tiny finger puppet show. Give each finger a distinct personality and tragic backstory.",
-    
-    "Redecorate a single room using only items from other rooms. Don't question why there's now a toilet brush in the living room. It's called art.",
-    
-    "Make up a conspiracy theory about something mundane like staplers or clouds. Create an evidence board with string connecting random things.",
-    
-    "Teach an invisible audience how to do something you're not actually good at. Confidence is key. You're the expert now.",
-    
-    "Create a fake podcast episode where you interview an imaginary celebrity about their imaginary new project. Really dig deep into those fictional details.",
-    
-    "Practice your evil laugh until it's truly unsettling. Try variations: maniacal, diabolical, and the 'just stole the last cookie' chuckle.",
-    
-    "Write fan mail to an inanimate object that has served you well. Thank your favorite mug for years of loyal beverage containment.",
-    
-    "Create an interpretive dance representing your WiFi connection's journey through peaks and outages. Feel the buffering.",
-    
-    "Design new constellations in the textured patterns on your ceiling. Name them things like 'The Great Procrastinator' and 'Slightly Concerned Dog.'",
-    
-    "Rehearse different ways to say 'hello' and 'goodbye' using only your eyebrows. Become a master of the eyebrow greeting.",
-    
-    "Write a breakup letter to a bad habit you want to quit. Be dramatic about it. 'It's not me, it's you, late-night snacking.'",
-    
-    "Create a new sport using only items within arm's reach. Write comprehensive rules. Declare yourself champion.",
-    
-    "Practice accepting imaginary awards with increasing levels of surprise, from 'mild delight' to 'full ugly crying.'",
-    
-    "Host an auction for yourself where you bid on imaginary experiences. 'Do I hear fifty imagination dollars for a nap?'",
-    
-    "Write a haiku about each room in your home, capturing its true essence. 'Bathroom: porcelain throne, steam rises like morning dreams, toilet paper low.'",
-    
-    "Create a scavenger hunt for yourself that you'll forget about. Future you will be either confused or delighted.",
-    
-    "Practice your 'I totally knew that already' face in the mirror. Perfect the knowing nod. Master the thoughtful 'mmhmm.'",
-    
-    "Write a formal apology letter to someone you wronged in a dream. Be specific about the dream crimes you committed.",
-    
-    "Choreograph a fight scene with yourself using only dramatic poses and slow motion. Film it. Never show anyone.",
-    
-    "Create a fake language and write a translation dictionary. Teach it to no one. Keep the knowledge to yourself.",
-    
-    "Fold all your clothes in a completely new way and pretend it's a revolutionary technique you invented. Name it after yourself.",
-    
-    "Rate your household items like a snobby critic. 'This fork has potential, but lacks the sophistication of a true utensil.'",
-    
-    "Write the beginning of a novel you'll never finish. Make the first sentence ridiculously dramatic and then just stop.",
-    
-    "Practice greeting yourself in the mirror as if you're meeting a long-lost twin. Make it emotional. Embrace yourself.",
-    
-    "Create a newspaper headline for the most mundane thing that happened today. 'LOCAL PERSON FINDS MATCHING SOCKS: EXPERTS BAFFLED.'",
-    
-    "Build a tiny obstacle course for a small object and cheer it on as it 'competes.' The marble is a champion athlete.",
-    
-    "Write a review of your own life so far, three and a half stars. 'Promising early seasons but the plot got weird around season 25.'",
-    
-    "Create a fancy restaurant menu for the leftovers in your fridge. 'Deconstructed yesterday's pasta with artisanal cold sauce.'",
-    
-    "Practice your royal wave until it's elegant and restrained. Wave at passing cars from your window like visiting royalty.",
-    
-    "Write a motivational speech for your houseplants about photosynthesis. Really believe in their ability to convert sunlight.",
-    
-    "Create a detailed schedule for doing absolutely nothing. Block out time for staring at walls. Pencil in some sighing.",
-    
-    "Invent a new word and use it casually in conversation until someone asks what it means. Explain it like it's obvious.",
-    
-    "Design a logo for yourself as if you were a brand. What's your tagline? 'Adequate since birth' works fine.",
-    
-    "Create a time capsule of today's garbage. Future archaeologists will be fascinated by these snack wrappers.",
-    
-    "Practice walking into rooms with different energies: confident, mysterious, concerned, or like you forgot why you're there.",
-    
-    "Write a stern letter to yourself from your pet's perspective about all the ways you've disappointed them.",
-    
-    "Create a podcast where you review different spots to sit in your home. 'The couch cushion review, episode 47.'",
-    
-    "Organize your junk drawer by emotional significance. That random battery? Very meaningful. Keep it forever.",
-    
-    "Practice signing autographs for when you inevitably become famous for something weird.",
-    
-    "Create a voicemail greeting for each room in your house as if they're different offices in a bizarre corporation.",
-    
-    "Attempt to communicate with your reflection using only blinks. Develop a blink-based morse code. Blink twice for snacks.",
-    
-    "Write a strongly-worded open letter to future you about the state of the apartment. Demand improvement.",
-    
-    "Create a nature documentary about the dust bunnies under your bed. Their society is complex and fascinating.",
-    
-    "Practice your 'I'm totally listening' face while daydreaming about absolutely anything else.",
-    
-    "Build an elaborate backstory for the person who owned your home before you. They were definitely interesting.",
-    
-    "Create award categories for your days of the week. Tuesday is up for 'Most Underappreciated.' Wednesday is robbed.",
-    
-    "Practice ninja moves in slow motion while maintaining direct eye contact with an object. Establish dominance.",
-    
-    "Write detailed instructions for something simple as if for an alien. 'First, locate the bread. It fears you.'",
-    
-    "Rate your dreams from the past week like a film critic. 'The one with the talking fish showed real promise.'",
-    
-    "Create a fake product infomercial for something you already own. Act out the 'before' struggle dramatically.",
-    
-    "Practice entering rooms like different movie genres: horror, romance, action, or indie film where nothing happens.",
-    
-    "Write a thank you note to past you for a decision that worked out well. Acknowledge your own wisdom.",
-    
-    "Create an absurd exercise routine using only movements you invent on the spot. The 'confused flamingo' is core work.",
-    
-    "Host a poetry slam in your bathroom. The acoustics are excellent and the audience is captive.",
-    
-    "Design a board game about your daily routine. Add drama with cards like 'WiFi dies' and 'surprise nap attack.'",
-    
-    "Practice your 'just casually noticed something interesting' look for when you need to avoid awkward conversations.",
-    
-    "Create a documentary-style opening narration for your own day. 'In a world... where the alarm didn't go off...'",
-    
-    "Write a contract between yourself and your bed about appropriate napping hours. Both parties must sign.",
-    
-    "Arrange your snacks by how betrayed you'd feel if they disappeared. Create a snack betrayal hierarchy.",
-    
-    "Practice juggling with increasingly inappropriate items. Start with socks, graduate to more ambitious choices.",
-    
-    "Create a secret society with one member: you. Design handshakes, symbols, and mysterious rituals.",
-    
-    "Write a formal complaint to your brain about intrusive thoughts. Demand a refund on that cringy memory from 2015.",
-    
-    "Build a pillow fort and establish it as an independent nation. Create a flag and declare snack time a national holiday.",
-    
-    "Practice walking in completely straight lines as if there's a balance beam only you can see.",
-    
-    "Create a workout routine based entirely on avoiding responsibilities. Procrastination is cardio.",
-    
-    "Write an epic quest narrative about finding your phone charger. The hero's journey, but for charging cables.",
-    
-    "Rate clouds by how much they look like things. Today's cloud gets a 7/10, solid dinosaur vibes.",
-    
-    "Create a ranking system for your thoughts and only allow premium thoughts after 6 PM.",
-    
-    "Practice your 'I'm having a completely normal day' face in the mirror. Really sell the normalcy.",
-    
-    "Write a cease and desist letter to your alarm clock for repeated disturbances of peace.",
-    
-    "Create elaborate theories about where all your missing socks have gone. The sock dimension is real.",
-    
-    "Host a debate with yourself about a topic you have no opinion on. Argue both sides passionately.",
-    
-    "Practice your dramatic reveal face for when you eventually share a mildly interesting fact.",
-    
-    "Create a rating system for shadows in your home. That one in the corner is particularly moody.",
-    
-    "Write a resignation letter from being an adult for the day. Effective immediately.",
-    
-    "Design a superhero alter ego based entirely on your most useless skill. 'The Procrastinator' saves the day... eventually.",
-    
-    "Host a press conference about the breaking news of what you had for lunch. Take no questions.",
-    
-    "Create a training montage sequence for getting off the couch. Include dramatic music in your head.",
-    
-    "Practice saying 'no' in a mirror until it sounds natural. You're still going to say yes to things.",
-    
-    "Write a letter of recommendation for your favorite snack to get a job at other people's houses.",
-    
-    "Create an interpretive dance about your WiFi signal. Really capture the intermittent connection.",
-    
-    "Develop a rating scale for naps from 'power nap' to 'accidentally slept through dinner.'",
-    
-    "Write a peace treaty between yourself and mornings. Negotiate reasonable wake-up terms.",
-    
-    "Create a fake true crime documentary about who keeps leaving the lights on in your house.",
-    
-    "Practice your 'sophisticated person enjoying art' look while staring at random wall textures."
-];
-
-// Ideas array - starts with base, remote packs are loaded dynamically
-let FALLBACK_IDEAS = [...FALLBACK_IDEAS_BASE];
-
-// Tracking for shown ideas to avoid repeats
-let shownIdeaIndices = [];
-let shuffledIndices = [];
-
-/* ========================
-   Remote Ideas Fetching
+   Idea Packs System
    ======================== */
 
 // Base URL for fetching ideas - works both on GitHub Pages and locally
@@ -1061,18 +968,20 @@ const IDEAS_BASE_URL = window.location.hostname === 'localhost' || window.locati
     ? './ideas/'
     : '/im-boring/ideas/';
 
-// localStorage keys for remote ideas
-const REMOTE_IDEAS_STORAGE_KEY = 'im-boring-remote-ideas';
-const DOWNLOADED_PACKS_KEY = 'im-boring-downloaded-packs';
+// localStorage key prefix for idea packs
+const PACK_STORAGE_PREFIX = 'im-boring-idea-pack-';
 
 // Minimum ideas threshold before fetching more
 const MIN_IDEAS_THRESHOLD = 500;
 
-// Remote ideas loaded into memory
-let remoteIdeas = [];
+// In-memory cache of loaded packs
+let loadedPacks = {};
 
 // Flag to prevent concurrent fetches
 let isFetchingIdeas = false;
+
+// Flag to track if initial packs have been loaded
+let packsInitialized = false;
 
 /**
  * Show the ideas loading indicator
@@ -1095,69 +1004,139 @@ function hideIdeasLoader() {
 }
 
 /**
- * Load previously downloaded remote ideas from localStorage
- * @returns {string[]} Array of remote ideas
+ * Clear old localStorage keys from previous architecture
+ * Called once on migration to new pack system
  */
-function loadRemoteIdeasFromStorage() {
+function migrateOldStorage() {
+    const oldKeys = [
+        'im-boring-remote-ideas',
+        'im-boring-downloaded-packs',
+        'im-boring-daily-limit'
+    ];
+    
+    oldKeys.forEach(key => {
+        try {
+            if (localStorage.getItem(key) !== null) {
+                localStorage.removeItem(key);
+                console.log(`Migrated: removed old key ${key}`);
+            }
+        } catch (error) {
+            console.warn(`Could not remove old key ${key}:`, error.message);
+        }
+    });
+}
+
+/**
+ * Load all idea packs from localStorage into memory
+ * Scans for keys matching the pack prefix pattern
+ */
+function loadAllPacks() {
+    loadedPacks = {};
+    
     try {
-        const stored = localStorage.getItem(REMOTE_IDEAS_STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-                return parsed;
+        // Scan localStorage for pack keys
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(PACK_STORAGE_PREFIX)) {
+                const packId = key.replace(PACK_STORAGE_PREFIX, '');
+                const stored = localStorage.getItem(key);
+                if (stored) {
+                    const ideas = JSON.parse(stored);
+                    if (Array.isArray(ideas) && ideas.length > 0) {
+                        loadedPacks[packId] = ideas;
+                    } else if (Array.isArray(ideas) && ideas.length === 0) {
+                        // Pack is empty, remove it
+                        localStorage.removeItem(key);
+                    }
+                }
             }
         }
     } catch (error) {
-        console.warn('Could not load remote ideas from storage:', error.message);
+        console.warn('Error loading packs from localStorage:', error.message);
     }
-    return [];
+    
+    console.log(`Loaded ${Object.keys(loadedPacks).length} packs from localStorage`);
 }
 
 /**
- * Save remote ideas to localStorage
- * @param {string[]} ideas - Array of ideas to save
+ * Save a single pack to localStorage
+ * If pack is empty, removes the key entirely
+ * @param {string} packId - The pack ID (e.g., "pack-001")
  */
-function saveRemoteIdeasToStorage(ideas) {
+function savePack(packId) {
+    const key = PACK_STORAGE_PREFIX + packId;
+    
     try {
-        localStorage.setItem(REMOTE_IDEAS_STORAGE_KEY, JSON.stringify(ideas));
+        const ideas = loadedPacks[packId];
+        
+        if (!ideas || ideas.length === 0) {
+            // Pack is empty, remove from storage and memory
+            localStorage.removeItem(key);
+            delete loadedPacks[packId];
+            console.log(`Pack ${packId} exhausted and removed`);
+        } else {
+            localStorage.setItem(key, JSON.stringify(ideas));
+        }
     } catch (error) {
-        console.warn('Could not save remote ideas to storage:', error.message);
+        console.warn(`Could not save pack ${packId}:`, error.message);
     }
 }
 
 /**
- * Get the list of already downloaded pack IDs
+ * Get total count of remaining ideas across all packs
+ * @returns {number} Total remaining ideas
+ */
+function getTotalIdeasCount() {
+    let total = 0;
+    for (const packId in loadedPacks) {
+        total += loadedPacks[packId].length;
+    }
+    return total;
+}
+
+/**
+ * Get list of pack IDs currently loaded (non-empty)
  * @returns {string[]} Array of pack IDs
  */
-function getDownloadedPacks() {
-    try {
-        const stored = localStorage.getItem(DOWNLOADED_PACKS_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-                return parsed;
-            }
-        }
-    } catch (error) {
-        console.warn('Could not load downloaded packs list:', error.message);
-    }
-    return [];
+function getLoadedPackIds() {
+    return Object.keys(loadedPacks).filter(id => loadedPacks[id] && loadedPacks[id].length > 0);
 }
 
 /**
- * Mark a pack as downloaded
- * @param {string} packId - The pack ID to mark as downloaded
+ * Get a random idea from the loaded packs
+ * Removes the idea from its pack permanently
+ * @returns {string|null} A random idea, or null if no ideas available
  */
-function markPackDownloaded(packId) {
-    try {
-        const packs = getDownloadedPacks();
-        if (!packs.includes(packId)) {
-            packs.push(packId);
-            localStorage.setItem(DOWNLOADED_PACKS_KEY, JSON.stringify(packs));
-        }
-    } catch (error) {
-        console.warn('Could not save downloaded pack:', error.message);
+function getRandomIdea() {
+    const packIds = getLoadedPackIds();
+    
+    if (packIds.length === 0) {
+        console.warn('No ideas available in any pack');
+        return null;
     }
+    
+    // Pick a random pack
+    const randomPackIndex = Math.floor(Math.random() * packIds.length);
+    const packId = packIds[randomPackIndex];
+    const pack = loadedPacks[packId];
+    
+    // Pick a random idea from that pack
+    const randomIdeaIndex = Math.floor(Math.random() * pack.length);
+    const idea = pack[randomIdeaIndex];
+    
+    // Remove the idea from the pack
+    pack.splice(randomIdeaIndex, 1);
+    
+    // Save the updated pack
+    savePack(packId);
+    
+    // Check if we need to fetch more ideas
+    const totalRemaining = getTotalIdeasCount();
+    if (totalRemaining < MIN_IDEAS_THRESHOLD) {
+        fetchMoreIdeas();
+    }
+    
+    return idea;
 }
 
 /**
@@ -1180,7 +1159,7 @@ async function fetchIdeasIndex() {
 }
 
 /**
- * Fetch a specific idea pack
+ * Fetch a specific idea pack from the server
  * @param {string} packFile - The pack filename (e.g., "pack-001.json")
  * @returns {Promise<{id: string, name: string, ideas: string[]}|null>} The pack or null on failure
  */
@@ -1200,30 +1179,14 @@ async function fetchIdeaPack(packFile) {
 }
 
 /**
- * Check for and download new idea packs from the remote server
- * Only downloads if remaining ideas < MIN_IDEAS_THRESHOLD
- * Picks a random pack from available packs
+ * Fetch more ideas when running low
+ * Priority:
+ * 1. Download packs that aren't loaded at all (not in loadedPacks)
+ * 2. If all packs are partially used, refresh the one with fewest remaining ideas
  */
-async function fetchRemoteIdeas() {
+async function fetchMoreIdeas() {
     // Prevent concurrent fetches
     if (isFetchingIdeas) {
-        return;
-    }
-    
-    // Load existing remote ideas from storage first
-    remoteIdeas = loadRemoteIdeasFromStorage();
-    
-    // Merge with FALLBACK_IDEAS if we have any
-    if (remoteIdeas.length > 0) {
-        mergeRemoteIdeas();
-    }
-    
-    // Calculate remaining unshown ideas
-    const remainingIdeas = FALLBACK_IDEAS.length - shownIdeaIndices.length;
-    
-    // Only fetch more if we're running low
-    if (remainingIdeas >= MIN_IDEAS_THRESHOLD) {
-        console.log(`${remainingIdeas} ideas remaining, no need to fetch more`);
         return;
     }
     
@@ -1238,48 +1201,63 @@ async function fetchRemoteIdeas() {
             return;
         }
         
-        // Get list of already downloaded packs
-        const downloadedPacks = getDownloadedPacks();
+        // Get list of currently loaded pack IDs
+        const loadedPackIds = Object.keys(loadedPacks);
         
-        // Find new packs we haven't downloaded yet
-        const newPacks = index.packs.filter(pack => {
-            // Extract pack ID from filename (e.g., "pack-001.json" -> "pack-001")
-            const packId = pack.replace('.json', '');
-            return !downloadedPacks.includes(packId);
+        // Find packs that aren't loaded at all (available to download fresh)
+        const availablePacks = index.packs.filter(packFile => {
+            const packId = packFile.replace('.json', '');
+            return !loadedPackIds.includes(packId);
         });
         
-        if (newPacks.length === 0) {
-            console.log('No new idea packs available to download');
-            return;
+        let selectedPackFile;
+        let isRefresh = false;
+        
+        if (availablePacks.length > 0) {
+            // Pick a random available pack to download
+            const randomIndex = Math.floor(Math.random() * availablePacks.length);
+            selectedPackFile = availablePacks[randomIndex];
+            console.log(`Downloading new pack: ${selectedPackFile}`);
+        } else {
+            // All packs are partially used - find the one with fewest remaining ideas to refresh
+            let smallestPackId = null;
+            let smallestCount = Infinity;
+            
+            for (const packId in loadedPacks) {
+                const count = loadedPacks[packId].length;
+                if (count < smallestCount) {
+                    smallestCount = count;
+                    smallestPackId = packId;
+                }
+            }
+            
+            if (smallestPackId) {
+                selectedPackFile = smallestPackId + '.json';
+                isRefresh = true;
+                console.log(`Refreshing pack ${smallestPackId} (had ${smallestCount} ideas remaining)`);
+            } else {
+                console.log('No packs available to download or refresh');
+                return;
+            }
         }
         
-        // Pick a random pack from available packs
-        const randomIndex = Math.floor(Math.random() * newPacks.length);
-        const selectedPack = newPacks[randomIndex];
-        
-        console.log(`Low on ideas (${remainingIdeas} remaining). Downloading random pack: ${selectedPack}`);
-        
         // Download the selected pack
-        const pack = await fetchIdeaPack(selectedPack);
+        const pack = await fetchIdeaPack(selectedPackFile);
         if (pack && pack.ideas && Array.isArray(pack.ideas)) {
-            // Add new ideas to our remote ideas array
-            remoteIdeas.push(...pack.ideas);
+            const packId = pack.id || selectedPackFile.replace('.json', '');
             
-            // Mark this pack as downloaded
-            const packId = pack.id || selectedPack.replace('.json', '');
-            markPackDownloaded(packId);
+            // Add pack to memory (replaces if refreshing)
+            loadedPacks[packId] = [...pack.ideas];
             
-            // Save updated remote ideas to storage
-            saveRemoteIdeasToStorage(remoteIdeas);
+            // Save to localStorage
+            savePack(packId);
             
-            // Merge with fallback ideas
-            mergeRemoteIdeas();
-            
-            console.log(`Downloaded pack "${pack.name || packId}" with ${pack.ideas.length} ideas! Total: ${FALLBACK_IDEAS.length}`);
+            const action = isRefresh ? 'Refreshed' : 'Downloaded';
+            console.log(`${action} pack "${pack.name || packId}" with ${pack.ideas.length} ideas! Total: ${getTotalIdeasCount()}`);
         }
         
     } catch (error) {
-        console.error('Error fetching remote ideas:', error);
+        console.error('Error fetching ideas:', error);
     } finally {
         isFetchingIdeas = false;
         hideIdeasLoader();
@@ -1287,69 +1265,49 @@ async function fetchRemoteIdeas() {
 }
 
 /**
- * Merge remote ideas into the FALLBACK_IDEAS array
- * Avoids duplicates
+ * Initialize the idea packs system
+ * Loads existing packs from localStorage or fetches starter pack
  */
-function mergeRemoteIdeas() {
-    // Create a Set of existing ideas for fast lookup
-    const existingIdeas = new Set(FALLBACK_IDEAS);
+async function initializeIdeaPacks() {
+    if (packsInitialized) {
+        return;
+    }
     
-    // Add only new ideas
-    let addedCount = 0;
-    for (const idea of remoteIdeas) {
-        if (!existingIdeas.has(idea)) {
-            FALLBACK_IDEAS.push(idea);
-            existingIdeas.add(idea);
-            addedCount++;
+    // Migrate old storage format if needed
+    migrateOldStorage();
+    
+    // Load existing packs from localStorage
+    loadAllPacks();
+    
+    // If no packs loaded, fetch the starter pack (pack-000)
+    if (Object.keys(loadedPacks).length === 0) {
+        console.log('No packs found, fetching starter pack...');
+        showIdeasLoader();
+        
+        try {
+            const starterPack = await fetchIdeaPack('pack-000.json');
+            if (starterPack && starterPack.ideas && Array.isArray(starterPack.ideas)) {
+                const packId = starterPack.id || 'pack-000';
+                loadedPacks[packId] = [...starterPack.ideas];
+                savePack(packId);
+                console.log(`Loaded starter pack with ${starterPack.ideas.length} ideas`);
+            }
+        } catch (error) {
+            console.error('Failed to load starter pack:', error);
+        } finally {
+            hideIdeasLoader();
         }
     }
     
-    if (addedCount > 0) {
-        // Reset shuffle so new ideas can be included
-        shuffledIndices = [];
-        shownIdeaIndices = [];
-        console.log(`Merged ${addedCount} remote ideas into fallback pool`);
-    }
-}
-
-/**
- * Fisher-Yates shuffle algorithm to randomize array
- * @param {Array} array - Array to shuffle
- * @returns {Array} New shuffled array
- */
-function shuffleArray(array) {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
-
-/**
- * Get the next fallback idea without repeating until all shown
- * @returns {string} A random fallback idea
- */
-function getNextFallbackIdea() {
-    // If we've shown all ideas or haven't started, reshuffle
-    if (shuffledIndices.length === 0) {
-        // Create array of indices [0, 1, 2, ..., n-1]
-        const indices = FALLBACK_IDEAS.map((_, i) => i);
-        shuffledIndices = shuffleArray(indices);
-        shownIdeaIndices = [];
+    // Check if we need more ideas
+    const totalIdeas = getTotalIdeasCount();
+    console.log(`Total ideas available: ${totalIdeas}`);
+    
+    if (totalIdeas < MIN_IDEAS_THRESHOLD) {
+        fetchMoreIdeas();
     }
     
-    // Get the next index from shuffled array
-    const nextIndex = shuffledIndices.pop();
-    shownIdeaIndices.push(nextIndex);
-    
-    // Check if we need to fetch more ideas (do this in background)
-    const remaining = FALLBACK_IDEAS.length - shownIdeaIndices.length;
-    if (remaining < MIN_IDEAS_THRESHOLD) {
-        fetchRemoteIdeas();
-    }
-    
-    return FALLBACK_IDEAS[nextIndex];
+    packsInitialized = true;
 }
 
 /* ========================
@@ -1420,7 +1378,7 @@ async function generateIdea() {
         
         if (!languageModel) {
             // AI not available, use fallback
-            return getNextFallbackIdea();
+            return getRandomIdea();
         }
         
         // Create a session if we don't have one, or use existing
@@ -1437,7 +1395,7 @@ async function generateIdea() {
     } catch (error) {
         console.error('Chrome AI error:', error);
         // AI failed, use fallback instead
-        return getNextFallbackIdea();
+        return getRandomIdea();
     } finally {
         hideMascot();
         isGenerating = false;
@@ -1458,8 +1416,8 @@ async function handleBoringButtonClick() {
     // Play a sound on click
     playRandomSound();
     
-    // Increment the daily counter
-    incrementDailyPress();
+    // Increment the press counter
+    incrementPress();
     
     // Check if this press hit the limit
     if (isLimitReached()) {
@@ -1523,8 +1481,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Load daily limit from localStorage
-    loadDailyLimit();
+    // Load rate limit from localStorage
+    loadRateLimit();
     updateLimitCounter();
     
     // If limit was already reached, show the message
@@ -1535,6 +1493,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load and render history from localStorage
     renderHistory();
     
-    // Fetch new ideas from remote server
-    fetchRemoteIdeas();
+    // Initialize idea packs system
+    initializeIdeaPacks();
 });
