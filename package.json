@@ -1,0 +1,11 @@
+{
+  "name": "im-boring",
+  "version": "1.0.0",
+  "description": "A retro-arcade website with a big red button that generates boredom-busting ideas using AI",
+  "scripts": {
+    "deploy": "gh-pages -d ."
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.1"
+  }
+}
