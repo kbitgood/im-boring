@@ -1,0 +1,329 @@
+/* I'm Boring - Synthwave Theme CSS */
+
+/* ========================
+   CSS Custom Properties
+   ======================== */
+:root {
+    /* Neon Pink */
+    --neon-pink: #ff00ff;
+    --neon-pink-light: #ff71ce;
+    
+    /* Cyan */
+    --cyan: #00ffff;
+    --cyan-light: #01cdfe;
+    
+    /* Purple */
+    --purple: #b967ff;
+    --purple-dark: #8b00ff;
+    
+    /* Dark Backgrounds */
+    --dark-bg: #0a0a0a;
+    --dark-bg-alt: #1a1a2e;
+    
+    /* Text */
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    
+    /* Fonts */
+    --font-pixel: 'Press Start 2P', cursive;
+    --font-body: system-ui, -apple-system, sans-serif;
+    
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+}
+
+/* ========================
+   Reset & Base Styles
+   ======================== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: linear-gradient(180deg, var(--dark-bg) 0%, var(--dark-bg-alt) 100%);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ========================
+   Layout - Mobile First
+   ======================== */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--spacing-md);
+    gap: var(--spacing-lg);
+}
+
+/* ========================
+   Page Header
+   ======================== */
+.page-header {
+    text-align: center;
+}
+
+.page-title {
+    font-family: var(--font-pixel);
+    font-size: 1.25rem;
+    color: var(--cyan);
+    text-transform: uppercase;
+    text-shadow: 
+        0 0 10px var(--cyan),
+        0 0 20px var(--cyan),
+        0 0 40px var(--cyan-light);
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: 2px;
+}
+
+.page-subtitle {
+    font-family: var(--font-pixel);
+    font-size: 0.5rem;
+    color: var(--neon-pink-light);
+    text-shadow: 0 0 8px var(--neon-pink);
+}
+
+/* ========================
+   Button Section
+   ======================== */
+.button-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.boring-button {
+    font-family: var(--font-pixel);
+    font-size: 0.75rem;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(180deg, #ff3366 0%, #cc0033 100%);
+    color: var(--text-primary);
+    border: 4px solid #ff6699;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 
+        0 6px 0 #990022,
+        0 8px 20px rgba(255, 0, 102, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.1s ease;
+    position: relative;
+}
+
+.boring-button:hover {
+    background: linear-gradient(180deg, #ff4477 0%, #dd1144 100%);
+    box-shadow: 
+        0 6px 0 #990022,
+        0 8px 30px rgba(255, 0, 102, 0.6),
+        inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+
+.boring-button:active {
+    transform: translateY(4px);
+    box-shadow: 
+        0 2px 0 #990022,
+        0 4px 10px rgba(255, 0, 102, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ========================
+   Loading Container
+   ======================== */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.loading-mascot {
+    width: 60px;
+    height: 60px;
+    background: var(--neon-pink);
+    border-radius: 50%;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.loading-text {
+    font-family: var(--font-pixel);
+    font-size: 0.625rem;
+    color: var(--cyan);
+    text-transform: uppercase;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+}
+
+/* ========================
+   Result Container
+   ======================== */
+.result-container {
+    width: 100%;
+    max-width: 500px;
+}
+
+.result-card {
+    background: linear-gradient(135deg, var(--dark-bg-alt) 0%, var(--dark-bg) 100%);
+    border: 2px solid var(--purple);
+    border-radius: 12px;
+    padding: var(--spacing-md);
+    box-shadow: 
+        0 0 20px rgba(185, 103, 255, 0.3),
+        inset 0 0 20px rgba(185, 103, 255, 0.1);
+}
+
+.result-text {
+    font-family: var(--font-pixel);
+    font-size: 0.75rem;
+    line-height: 2;
+    color: var(--cyan-light);
+    text-align: center;
+}
+
+/* ========================
+   History Section
+   ======================== */
+.history-section {
+    width: 100%;
+    max-width: 800px;
+    margin-top: var(--spacing-xl);
+}
+
+.history-title {
+    font-family: var(--font-pixel);
+    font-size: 0.75rem;
+    color: var(--neon-pink-light);
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+    text-transform: uppercase;
+    text-shadow: 0 0 10px var(--neon-pink);
+}
+
+.history-gallery {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+}
+
+/* ========================
+   Utility Classes
+   ======================== */
+.hidden {
+    display: none !important;
+}
+
+/* ========================
+   Responsive - Tablet
+   ======================== */
+@media (min-width: 640px) {
+    .page-title {
+        font-size: 1.75rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.625rem;
+    }
+    
+    .boring-button {
+        font-size: 1rem;
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    .loading-mascot {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .loading-text {
+        font-size: 0.75rem;
+    }
+    
+    .result-text {
+        font-size: 0.875rem;
+    }
+    
+    .history-title {
+        font-size: 1rem;
+    }
+    
+    .history-gallery {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ========================
+   Responsive - Desktop
+   ======================== */
+@media (min-width: 1024px) {
+    .page-title {
+        font-size: 2.5rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.75rem;
+    }
+    
+    .boring-button {
+        font-size: 1.25rem;
+        padding: var(--spacing-xl) 4rem;
+    }
+    
+    .result-card {
+        padding: var(--spacing-lg);
+    }
+    
+    .result-text {
+        font-size: 1rem;
+    }
+    
+    .history-gallery {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ========================
+   Large Desktop
+   ======================== */
+@media (min-width: 1200px) {
+    .main-container {
+        padding: var(--spacing-xl);
+    }
+    
+    .history-section {
+        max-width: 1000px;
+    }
+}
