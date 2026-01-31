@@ -308,6 +308,7 @@ function hideMascot() {
 
 /**
  * Show the result container with the generated idea
+ * Displays the idea with a smooth slide-in animation from bottom
  * @param {string} idea - The idea text to display
  */
 function showResult(idea) {
@@ -319,19 +320,33 @@ function showResult(idea) {
     }
     if (resultContainer && resultText) {
         resultText.textContent = idea;
+        // Remove hidden class first to make element visible but transparent
         resultContainer.classList.remove('hidden');
+        // Force a reflow to ensure the initial state is rendered
+        // before adding the visible class for animation
+        resultContainer.offsetHeight;
+        // Add visible class to trigger slide-in animation
+        resultContainer.classList.add('visible');
     }
 }
 
 /**
- * Hide the result container
+ * Hide the result container with fade-out animation
  */
 function hideResult() {
     if (!resultContainer) {
         resultContainer = document.getElementById('result-container');
     }
     if (resultContainer) {
-        resultContainer.classList.add('hidden');
+        // Remove visible class to trigger fade-out
+        resultContainer.classList.remove('visible');
+        // Add hidden class after animation completes
+        // Use a shorter delay since we want it hidden during loading
+        setTimeout(() => {
+            if (!resultContainer.classList.contains('visible')) {
+                resultContainer.classList.add('hidden');
+            }
+        }, 400); // Match the CSS transition duration
     }
 }
 

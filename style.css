@@ -495,16 +495,54 @@ body {
 .result-container {
     width: 100%;
     max-width: 500px;
+    /* Animation setup - initial state (hidden) */
+    opacity: 0;
+    transform: translateY(30px);
+    /* Smooth slide-in animation */
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+/* Visible state with animation */
+.result-container.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .result-card {
     background: linear-gradient(135deg, var(--dark-bg-alt) 0%, var(--dark-bg) 100%);
+    /* Neon border with purple/pink glow */
     border: 2px solid var(--purple);
     border-radius: 12px;
     padding: var(--spacing-md);
+    /* Enhanced neon glow matching theme */
     box-shadow: 
+        0 0 10px rgba(185, 103, 255, 0.5),
         0 0 20px rgba(185, 103, 255, 0.3),
+        0 0 40px rgba(255, 0, 255, 0.2),
+        0 0 60px rgba(0, 255, 255, 0.1),
         inset 0 0 20px rgba(185, 103, 255, 0.1);
+    /* Subtle glow animation */
+    animation: cardGlow 3s ease-in-out infinite;
+}
+
+/* Card glow pulsing animation */
+@keyframes cardGlow {
+    0%, 100% {
+        box-shadow: 
+            0 0 10px rgba(185, 103, 255, 0.5),
+            0 0 20px rgba(185, 103, 255, 0.3),
+            0 0 40px rgba(255, 0, 255, 0.2),
+            0 0 60px rgba(0, 255, 255, 0.1),
+            inset 0 0 20px rgba(185, 103, 255, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 0 15px rgba(185, 103, 255, 0.6),
+            0 0 30px rgba(185, 103, 255, 0.4),
+            0 0 50px rgba(255, 0, 255, 0.3),
+            0 0 70px rgba(0, 255, 255, 0.15),
+            inset 0 0 25px rgba(185, 103, 255, 0.15);
+    }
 }
 
 .result-text {
@@ -513,6 +551,8 @@ body {
     line-height: 2;
     color: var(--cyan-light);
     text-align: center;
+    /* Text glow effect */
+    text-shadow: 0 0 8px rgba(1, 205, 254, 0.5);
 }
 
 /* ========================
@@ -584,6 +624,10 @@ body {
         font-size: 0.875rem;
     }
     
+    .result-container {
+        max-width: 550px;
+    }
+    
     .history-title {
         font-size: 1rem;
     }
@@ -619,6 +663,10 @@ body {
     
     .result-text {
         font-size: 1rem;
+    }
+    
+    .result-container {
+        max-width: 600px;
     }
     
     .history-gallery {
