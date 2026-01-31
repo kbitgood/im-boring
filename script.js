@@ -1067,6 +1067,9 @@ const IDEAS_BASE_URL = '/im-boring/ideas/';
 const REMOTE_IDEAS_STORAGE_KEY = 'im-boring-remote-ideas';
 const DOWNLOADED_PACKS_KEY = 'im-boring-downloaded-packs';
 
+// Minimum ideas threshold before fetching more
+const MIN_IDEAS_THRESHOLD = 500;
+
 // Remote ideas loaded into memory
 let remoteIdeas = [];
 
@@ -1197,20 +1200,30 @@ async function fetchIdeaPack(packFile) {
 
 /**
  * Check for and download new idea packs from the remote server
- * Only downloads packs that haven't been downloaded before
+ * Only downloads if remaining ideas < MIN_IDEAS_THRESHOLD
+ * Picks a random pack from available packs
  */
 async function fetchRemoteIdeas() {
+    // Load existing remote ideas from storage first
+    remoteIdeas = loadRemoteIdeasFromStorage();
+    
+    // Merge with FALLBACK_IDEAS if we have any
+    if (remoteIdeas.length > 0) {
+        mergeRemoteIdeas();
+    }
+    
+    // Calculate remaining unshown ideas
+    const remainingIdeas = FALLBACK_IDEAS.length - shownIdeaIndices.length;
+    
+    // Only fetch more if we're running low
+    if (remainingIdeas >= MIN_IDEAS_THRESHOLD) {
+        console.log(`${remainingIdeas} ideas remaining, no need to fetch more`);
+        return;
+    }
+    
     showIdeasLoader();
     
     try {
-        // Load existing remote ideas from storage first
-        remoteIdeas = loadRemoteIdeasFromStorage();
-        
-        // Merge with FALLBACK_IDEAS if we have any
-        if (remoteIdeas.length > 0) {
-            mergeRemoteIdeas();
-        }
-        
         // Fetch the index to see what packs are available
         const index = await fetchIdeasIndex();
         if (!index || !index.packs || !Array.isArray(index.packs)) {
@@ -1229,37 +1242,33 @@ async function fetchRemoteIdeas() {
         });
         
         if (newPacks.length === 0) {
-            console.log('No new idea packs to download');
+            console.log('No new idea packs available to download');
             return;
         }
         
-        console.log(`Found ${newPacks.length} new idea pack(s) to download`);
+        // Pick a random pack from available packs
+        const randomIndex = Math.floor(Math.random() * newPacks.length);
+        const selectedPack = newPacks[randomIndex];
         
-        // Download each new pack
-        let newIdeasCount = 0;
-        for (const packFile of newPacks) {
-            const pack = await fetchIdeaPack(packFile);
-            if (pack && pack.ideas && Array.isArray(pack.ideas)) {
-                // Add new ideas to our remote ideas array
-                remoteIdeas.push(...pack.ideas);
-                newIdeasCount += pack.ideas.length;
-                
-                // Mark this pack as downloaded
-                const packId = pack.id || packFile.replace('.json', '');
-                markPackDownloaded(packId);
-                
-                console.log(`Downloaded pack "${pack.name || packId}" with ${pack.ideas.length} ideas`);
-            }
-        }
+        console.log(`Low on ideas (${remainingIdeas} remaining). Downloading random pack: ${selectedPack}`);
         
-        if (newIdeasCount > 0) {
+        // Download the selected pack
+        const pack = await fetchIdeaPack(selectedPack);
+        if (pack && pack.ideas && Array.isArray(pack.ideas)) {
+            // Add new ideas to our remote ideas array
+            remoteIdeas.push(...pack.ideas);
+            
+            // Mark this pack as downloaded
+            const packId = pack.id || selectedPack.replace('.json', '');
+            markPackDownloaded(packId);
+            
             // Save updated remote ideas to storage
             saveRemoteIdeasToStorage(remoteIdeas);
             
             // Merge with fallback ideas
             mergeRemoteIdeas();
             
-            console.log(`Added ${newIdeasCount} new ideas! Total ideas: ${FALLBACK_IDEAS.length}`);
+            console.log(`Downloaded pack "${pack.name || packId}" with ${pack.ideas.length} ideas! Total: ${FALLBACK_IDEAS.length}`);
         }
         
     } catch (error) {
