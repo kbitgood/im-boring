@@ -578,6 +578,68 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--spacing-sm);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--spacing-xs);
+    /* Custom scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--purple) var(--dark-bg);
+}
+
+/* Webkit scrollbar styling */
+.history-gallery::-webkit-scrollbar {
+    width: 8px;
+}
+
+.history-gallery::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+    border-radius: 4px;
+}
+
+.history-gallery::-webkit-scrollbar-thumb {
+    background: var(--purple);
+    border-radius: 4px;
+}
+
+.history-gallery::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-pink);
+}
+
+/* History Card Styles */
+.history-card {
+    background: linear-gradient(135deg, var(--dark-bg-alt) 0%, var(--dark-bg) 100%);
+    border: 1px solid var(--purple);
+    border-radius: 8px;
+    padding: var(--spacing-sm);
+    /* Subtle neon glow - less intense than result card */
+    box-shadow: 
+        0 0 5px rgba(185, 103, 255, 0.3),
+        0 0 10px rgba(185, 103, 255, 0.15),
+        inset 0 0 10px rgba(185, 103, 255, 0.05);
+    /* Smooth hover transition */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 0 10px rgba(185, 103, 255, 0.5),
+        0 0 20px rgba(185, 103, 255, 0.3),
+        0 0 30px rgba(255, 0, 255, 0.15),
+        inset 0 0 15px rgba(185, 103, 255, 0.1);
+}
+
+.history-card-text {
+    font-family: var(--font-pixel);
+    font-size: 0.5rem;
+    line-height: 1.8;
+    color: var(--cyan-light);
+    text-shadow: 0 0 4px rgba(1, 205, 254, 0.3);
+    /* Limit text and add ellipsis for very long ideas */
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* ========================
@@ -635,6 +697,10 @@ body {
     .history-gallery {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .history-card-text {
+        font-size: 0.5625rem;
+    }
 }
 
 /* ========================
@@ -671,6 +737,15 @@ body {
     
     .history-gallery {
         grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .history-card {
+        padding: var(--spacing-md);
+    }
+    
+    .history-card-text {
+        font-size: 0.625rem;
+        -webkit-line-clamp: 5;
     }
 }
 

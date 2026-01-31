@@ -306,6 +306,9 @@ function hideMascot() {
    Result Display Functions
    ======================== */
 
+// History gallery element reference
+let historyGallery = null;
+
 /**
  * Show the result container with the generated idea
  * Displays the idea with a smooth slide-in animation from bottom
@@ -348,6 +351,39 @@ function hideResult() {
             }
         }, 400); // Match the CSS transition duration
     }
+}
+
+/* ========================
+   History Gallery Functions
+   ======================== */
+
+/**
+ * Add an idea to the history gallery
+ * Creates a new card and inserts it at the beginning (most recent first)
+ * @param {string} text - The idea text to add to history
+ */
+function addToHistory(text) {
+    if (!historyGallery) {
+        historyGallery = document.getElementById('history-gallery');
+    }
+    if (!historyGallery || !text) {
+        return;
+    }
+    
+    // Create the history card element
+    const card = document.createElement('div');
+    card.className = 'history-card';
+    
+    // Create the text paragraph
+    const textElement = document.createElement('p');
+    textElement.className = 'history-card-text';
+    textElement.textContent = text;
+    
+    // Assemble the card
+    card.appendChild(textElement);
+    
+    // Insert at the beginning (most recent first)
+    historyGallery.insertBefore(card, historyGallery.firstChild);
 }
 
 /* ========================
@@ -725,6 +761,8 @@ async function handleBoringButtonClick() {
     if (idea) {
         // Success - show the idea
         showResult(idea);
+        // Add to history gallery
+        addToHistory(idea);
         // Play a success sound
         playLevelUpSound();
     }
