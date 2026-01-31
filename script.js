@@ -1,7 +1,7 @@
 /**
- * I'm Boring - Retro Game Sounds & Loading Mascot
+ * I'm Boring - Retro Game Sounds, Loading Mascot & Chrome AI
  * Web Audio API sound generator for 8-bit chiptune effects
- * Plus loading mascot show/hide functionality
+ * Plus loading mascot show/hide and Chrome Built-in AI integration
  */
 
 // Audio context - initialized on first user interaction
@@ -9,6 +9,16 @@ let audioContext = null;
 
 // Loading container element reference
 let loadingContainer = null;
+
+// Result container element reference
+let resultContainer = null;
+let resultText = null;
+
+// Chrome AI session reference
+let aiSession = null;
+
+// Flag to prevent multiple simultaneous requests
+let isGenerating = false;
 
 /**
  * Initialize the AudioContext on first user interaction
@@ -292,13 +302,155 @@ function hideMascot() {
     }
 }
 
+/* ========================
+   Result Display Functions
+   ======================== */
+
+/**
+ * Show the result container with the generated idea
+ * @param {string} idea - The idea text to display
+ */
+function showResult(idea) {
+    if (!resultContainer) {
+        resultContainer = document.getElementById('result-container');
+    }
+    if (!resultText) {
+        resultText = document.getElementById('result-text');
+    }
+    if (resultContainer && resultText) {
+        resultText.textContent = idea;
+        resultContainer.classList.remove('hidden');
+    }
+}
+
+/**
+ * Hide the result container
+ */
+function hideResult() {
+    if (!resultContainer) {
+        resultContainer = document.getElementById('result-container');
+    }
+    if (resultContainer) {
+        resultContainer.classList.add('hidden');
+    }
+}
+
+/* ========================
+   Chrome Built-in AI
+   ======================== */
+
+/**
+ * Check if Chrome Built-in AI (Prompt API) is available
+ * Checks for both the new ai.languageModel API and legacy window.ai
+ * @returns {boolean} True if Chrome AI is available
+ */
+function isAIAvailable() {
+    // Check for the new Chrome AI API (ai.languageModel)
+    if (typeof self !== 'undefined' && self.ai && self.ai.languageModel) {
+        return true;
+    }
+    // Check for legacy window.ai API
+    if (typeof window !== 'undefined' && window.ai && window.ai.languageModel) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Get the AI language model API reference
+ * @returns {object|null} The languageModel API or null if not available
+ */
+function getAILanguageModel() {
+    if (typeof self !== 'undefined' && self.ai && self.ai.languageModel) {
+        return self.ai.languageModel;
+    }
+    if (typeof window !== 'undefined' && window.ai && window.ai.languageModel) {
+        return window.ai.languageModel;
+    }
+    return null;
+}
+
+/**
+ * The prompt for generating weird/wacky boredom-busting ideas
+ */
+const IDEA_PROMPT = `You are a quirky, creative assistant that suggests weird and wacky boredom-busting activities. 
+Generate ONE unique, unusual, and fun activity idea that someone could do right now to cure their boredom.
+The activity should be:
+- Weird, quirky, or unconventional (not typical suggestions like "read a book")
+- Safe and legal
+- Doable with common household items or no items at all
+- Fun and entertaining
+
+Respond with ONLY the activity suggestion in 2-3 sentences. Be playful and creative! No preamble, no explanations, just the weird activity idea.`;
+
+/**
+ * Generate a boredom-busting idea using Chrome Built-in AI
+ * @returns {Promise<string>} The generated idea or error message
+ */
+async function generateIdea() {
+    // Check if already generating
+    if (isGenerating) {
+        return null;
+    }
+    
+    isGenerating = true;
+    showMascot();
+    hideResult();
+    
+    try {
+        const languageModel = getAILanguageModel();
+        
+        if (!languageModel) {
+            throw new Error('Chrome AI not available');
+        }
+        
+        // Create a session if we don't have one, or use existing
+        if (!aiSession) {
+            aiSession = await languageModel.create({
+                systemPrompt: IDEA_PROMPT
+            });
+        }
+        
+        // Generate the idea with a simple prompt
+        const response = await aiSession.prompt('Give me a weird boredom-busting activity!');
+        
+        return response;
+    } catch (error) {
+        console.error('Chrome AI error:', error);
+        // Return null to signal failure (caller should use fallback)
+        return null;
+    } finally {
+        hideMascot();
+        isGenerating = false;
+    }
+}
+
+/**
+ * Handle the main button click - generate and display an idea
+ */
+async function handleBoringButtonClick() {
+    // Play a sound on click
+    playRandomSound();
+    
+    // Try to generate with AI
+    const idea = await generateIdea();
+    
+    if (idea) {
+        // Success - show the AI-generated idea
+        showResult(idea);
+        // Play a success sound
+        playLevelUpSound();
+    } else {
+        // AI not available or failed - show a message
+        showResult("Chrome AI isn't available in your browser. Try using Chrome with the Prompt API enabled, or check back later for fallback ideas!");
+    }
+}
+
 // DOM Ready - Set up button click handler
 document.addEventListener('DOMContentLoaded', () => {
     const boringButton = document.getElementById('boring-button');
     
     if (boringButton) {
-        boringButton.addEventListener('click', () => {
-            playRandomSound();
-        });
+        boringButton.addEventListener('click', handleBoringButtonClick);
     }
 });
