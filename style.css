@@ -8,9 +8,9 @@
     --neon-pink: #ff00ff;
     --neon-pink-light: #ff71ce;
     
-    /* Cyan */
+    /* Cyan - adjusted for WCAG AA contrast */
     --cyan: #00ffff;
-    --cyan-light: #01cdfe;
+    --cyan-light: #7df9ff; /* Brightened for better contrast on dark bg */
     
     /* Purple */
     --purple: #b967ff;
@@ -329,6 +329,13 @@ body {
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-md);
+    /* Smooth fade-in transition */
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+}
+
+.loading-container.hidden {
+    display: none !important;
 }
 
 /* Pixel Art Mascot - A cute retro robot */
@@ -617,7 +624,7 @@ body {
         0 0 10px rgba(185, 103, 255, 0.15),
         inset 0 0 10px rgba(185, 103, 255, 0.05);
     /* Smooth hover transition */
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, outline 0.2s ease;
 }
 
 .history-card:hover {
@@ -627,6 +634,13 @@ body {
         0 0 20px rgba(185, 103, 255, 0.3),
         0 0 30px rgba(255, 0, 255, 0.15),
         inset 0 0 15px rgba(185, 103, 255, 0.1);
+}
+
+/* Focus state for history cards (when made focusable) */
+.history-card:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 2px;
+    transform: translateY(-2px);
 }
 
 .history-card-text {
@@ -647,6 +661,38 @@ body {
    ======================== */
 .hidden {
     display: none !important;
+}
+
+/* Visually hidden but accessible to screen readers */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--cyan);
+    color: var(--dark-bg);
+    padding: var(--spacing-sm);
+    z-index: 100;
+    font-family: var(--font-pixel);
+    font-size: 0.625rem;
+    text-decoration: none;
+    transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+    top: 0;
 }
 
 /* ========================
@@ -759,5 +805,83 @@ body {
     
     .history-section {
         max-width: 1000px;
+    }
+}
+
+/* ========================
+   Accessibility - Reduced Motion
+   ======================== */
+@media (prefers-reduced-motion: reduce) {
+    /* Disable all animations */
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    /* Remove starfield animations */
+    .stars {
+        animation: none;
+    }
+    
+    /* Remove button pulse animation */
+    .boring-button {
+        animation: none;
+        /* Keep the static glow effect */
+        box-shadow: 
+            0 6px 0 #990022,
+            0 0 20px rgba(255, 0, 255, 0.5),
+            0 0 40px rgba(185, 103, 255, 0.3),
+            inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Remove mascot bounce animation */
+    .loading-mascot {
+        animation: none;
+    }
+    
+    /* Remove loading text pulse */
+    .loading-text {
+        animation: none;
+        opacity: 1;
+    }
+    
+    /* Remove card glow animation */
+    .result-card {
+        animation: none;
+    }
+    
+    /* Keep result container transitions minimal */
+    .result-container {
+        transition: none;
+    }
+    
+    /* Keep history card transitions minimal */
+    .history-card {
+        transition: none;
+    }
+    
+    .history-card:hover {
+        transform: none;
+    }
+}
+
+/* ========================
+   High Contrast Mode Support
+   ======================== */
+@media (forced-colors: active) {
+    .boring-button {
+        border: 3px solid CanvasText;
+    }
+    
+    .result-card {
+        border: 2px solid CanvasText;
+    }
+    
+    .history-card {
+        border: 1px solid CanvasText;
     }
 }

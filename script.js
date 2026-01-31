@@ -452,6 +452,7 @@ function addToHistory(text, shouldSave = true) {
     // Create the history card element
     const card = document.createElement('div');
     card.className = 'history-card';
+    card.setAttribute('role', 'listitem');
     
     // Create the text paragraph
     const textElement = document.createElement('p');
@@ -852,7 +853,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const boringButton = document.getElementById('boring-button');
     
     if (boringButton) {
+        // Click handler for mouse/touch
         boringButton.addEventListener('click', handleBoringButtonClick);
+        
+        // Keyboard handler for accessibility (Enter and Space keys)
+        // Note: Native buttons already support Enter/Space, but this ensures
+        // consistent behavior and allows for additional accessibility features
+        boringButton.addEventListener('keydown', (event) => {
+            // Handle Enter and Space keys explicitly
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault(); // Prevent default scroll on Space
+                handleBoringButtonClick();
+            }
+        });
     }
     
     // Load and render history from localStorage
