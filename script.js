@@ -357,17 +357,96 @@ function hideResult() {
    History Gallery Functions
    ======================== */
 
+/* ========================
+   History Persistence (localStorage)
+   ======================== */
+
+// localStorage key for history
+const HISTORY_STORAGE_KEY = 'im-boring-history';
+
+// Maximum number of ideas to store
+const MAX_HISTORY_SIZE = 50;
+
+// In-memory history array
+let ideasHistory = [];
+
+/**
+ * Save history to localStorage
+ * Limits to MAX_HISTORY_SIZE most recent ideas
+ * Handles errors gracefully (quota exceeded, localStorage disabled)
+ */
+function saveHistory() {
+    try {
+        // Limit to MAX_HISTORY_SIZE most recent ideas
+        const historyToSave = ideasHistory.slice(0, MAX_HISTORY_SIZE);
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historyToSave));
+    } catch (error) {
+        // Handle quota exceeded or localStorage disabled
+        console.warn('Could not save history to localStorage:', error.message);
+    }
+}
+
+/**
+ * Load history from localStorage
+ * Returns array of ideas or empty array if none found
+ * Handles errors gracefully (localStorage disabled, invalid JSON)
+ * @returns {string[]} Array of idea strings
+ */
+function loadHistory() {
+    try {
+        const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Validate it's an array
+            if (Array.isArray(parsed)) {
+                ideasHistory = parsed.slice(0, MAX_HISTORY_SIZE);
+                return ideasHistory;
+            }
+        }
+    } catch (error) {
+        // Handle localStorage disabled or corrupted data
+        console.warn('Could not load history from localStorage:', error.message);
+    }
+    ideasHistory = [];
+    return [];
+}
+
+/**
+ * Render loaded history to the gallery
+ * Called on page load to restore previous session's ideas
+ */
+function renderHistory() {
+    const history = loadHistory();
+    // Render in reverse order so newest appears first
+    // (history is stored newest-first, so we iterate normally)
+    history.forEach((idea) => {
+        addToHistory(idea, false); // false = don't save again
+    });
+}
+
 /**
  * Add an idea to the history gallery
  * Creates a new card and inserts it at the beginning (most recent first)
  * @param {string} text - The idea text to add to history
+ * @param {boolean} shouldSave - Whether to save to localStorage (default: true)
  */
-function addToHistory(text) {
+function addToHistory(text, shouldSave = true) {
     if (!historyGallery) {
         historyGallery = document.getElementById('history-gallery');
     }
     if (!historyGallery || !text) {
         return;
+    }
+    
+    // Add to in-memory history array (newest first)
+    if (shouldSave) {
+        ideasHistory.unshift(text);
+        // Limit to MAX_HISTORY_SIZE
+        if (ideasHistory.length > MAX_HISTORY_SIZE) {
+            ideasHistory = ideasHistory.slice(0, MAX_HISTORY_SIZE);
+        }
+        // Persist to localStorage
+        saveHistory();
     }
     
     // Create the history card element
@@ -768,11 +847,14 @@ async function handleBoringButtonClick() {
     }
 }
 
-// DOM Ready - Set up button click handler
+// DOM Ready - Set up button click handler and load history
 document.addEventListener('DOMContentLoaded', () => {
     const boringButton = document.getElementById('boring-button');
     
     if (boringButton) {
         boringButton.addEventListener('click', handleBoringButtonClick);
     }
+    
+    // Load and render history from localStorage
+    renderHistory();
 });
