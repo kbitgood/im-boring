@@ -1,0 +1,21 @@
+{
+  "name": "I'm Boring",
+  "short_name": "I'm Boring",
+  "description": "A retro arcade website with a big red button that generates boredom-busting ideas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#ff00ff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
