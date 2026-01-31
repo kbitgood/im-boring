@@ -25,10 +25,7 @@
         <header class="page-header">
             <h1 class="page-title">I'm Boring</h1>
             <p class="page-subtitle">Press the button for a boredom-busting idea!</p>
-            <div id="ai-status" class="ai-status" aria-live="polite">
-                <span class="ai-status-dot"></span>
-                <span class="ai-status-text">Checking AI...</span>
-            </div>
+
         </header>
 
         <!-- Button Section -->
@@ -83,6 +80,18 @@
             </div>
         </section>
     </main>
+
+    <!-- Idea Modal -->
+    <div id="idea-modal" class="idea-modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+            <h2 id="modal-title" class="modal-title">Your Idea</h2>
+            <div class="modal-body">
+                <p id="modal-text" class="modal-text"></p>
+            </div>
+        </div>
+    </div>
 
     <script src="ideas.js"></script>
     <script src="ideas2.js"></script>

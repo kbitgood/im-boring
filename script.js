@@ -358,6 +358,66 @@ function hideResult() {
    ======================== */
 
 /* ========================
+   Idea Modal Functions
+   ======================== */
+
+// Modal element references
+let ideaModal = null;
+let modalText = null;
+
+/**
+ * Initialize modal element references
+ */
+function initModal() {
+    if (!ideaModal) {
+        ideaModal = document.getElementById('idea-modal');
+    }
+    if (!modalText) {
+        modalText = document.getElementById('modal-text');
+    }
+}
+
+/**
+ * Open the idea modal with the given text
+ * @param {string} text - The full idea text to display
+ */
+function openIdeaModal(text) {
+    initModal();
+    if (ideaModal && modalText) {
+        modalText.textContent = text;
+        ideaModal.classList.remove('hidden');
+        // Focus the close button for accessibility
+        const closeBtn = ideaModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+/**
+ * Close the idea modal
+ */
+function closeIdeaModal() {
+    initModal();
+    if (ideaModal) {
+        ideaModal.classList.add('hidden');
+        // Restore body scroll
+        document.body.style.overflow = '';
+    }
+}
+
+/**
+ * Handle click on a history card
+ * @param {string} text - The full idea text
+ */
+function handleHistoryCardClick(text) {
+    playBleepSound();
+    openIdeaModal(text);
+}
+
+/* ========================
    History Persistence (localStorage)
    ======================== */
 
@@ -726,6 +786,8 @@ function addToHistory(text, shouldSave = true) {
     const card = document.createElement('div');
     card.className = 'history-card';
     card.setAttribute('role', 'listitem');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', 'Click to view full idea');
     
     // Create the text paragraph
     const textElement = document.createElement('p');
@@ -734,6 +796,17 @@ function addToHistory(text, shouldSave = true) {
     
     // Assemble the card
     card.appendChild(textElement);
+    
+    // Add click handler to open modal
+    card.addEventListener('click', () => handleHistoryCardClick(text));
+    
+    // Add keyboard handler for accessibility
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleHistoryCardClick(text);
+        }
+    });
     
     // Insert at the beginning (most recent first)
     historyGallery.insertBefore(card, historyGallery.firstChild);
@@ -1165,6 +1238,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Set up modal event listeners
+    const ideaModalEl = document.getElementById('idea-modal');
+    if (ideaModalEl) {
+        // Close button click
+        const closeBtn = ideaModalEl.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeIdeaModal);
+        }
+        
+        // Backdrop click to close
+        const backdrop = ideaModalEl.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', closeIdeaModal);
+        }
+        
+        // Escape key to close
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !ideaModalEl.classList.contains('hidden')) {
+                closeIdeaModal();
+            }
+        });
+    }
+    
     // Load daily limit from localStorage
     loadDailyLimit();
     updateLimitCounter();
@@ -1176,29 +1272,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load and render history from localStorage
     renderHistory();
-    
-    // Update AI status indicator
-    updateAIStatus();
 });
-
-/**
- * Update the AI status indicator to show current mode
- */
-function updateAIStatus() {
-    const statusEl = document.getElementById('ai-status');
-    const statusText = statusEl?.querySelector('.ai-status-text');
-    
-    if (!statusEl || !statusText) return;
-    
-    const aiAvailable = isAIAvailable();
-    
-    if (aiAvailable) {
-        statusEl.classList.remove('ai-fallback');
-        statusEl.classList.add('ai-active');
-        statusText.textContent = 'AI Mode';
-    } else {
-        statusEl.classList.remove('ai-active');
-        statusEl.classList.add('ai-fallback');
-        statusText.textContent = 'Fallback Mode';
-    }
-}

@@ -214,63 +214,6 @@ body {
     text-shadow: 0 0 8px var(--neon-pink);
 }
 
-/* AI Status Indicator */
-.ai-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: var(--spacing-sm);
-    padding: 0.25rem 0.75rem;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.ai-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-secondary);
-    animation: statusPulse 1.5s ease-in-out infinite;
-}
-
-.ai-status-text {
-    font-family: var(--font-pixel);
-    font-size: 0.4rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* AI Active state */
-.ai-status.ai-active .ai-status-dot {
-    background: #00ff88;
-    box-shadow: 0 0 8px #00ff88, 0 0 12px #00ff88;
-}
-
-.ai-status.ai-active .ai-status-text {
-    color: #00ff88;
-    text-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
-}
-
-/* Fallback state */
-.ai-status.ai-fallback .ai-status-dot {
-    background: var(--neon-pink);
-    box-shadow: 0 0 8px var(--neon-pink), 0 0 12px var(--neon-pink);
-    animation: none;
-}
-
-.ai-status.ai-fallback .ai-status-text {
-    color: var(--neon-pink-light);
-    text-shadow: 0 0 6px rgba(255, 113, 206, 0.5);
-}
-
-@keyframes statusPulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
 /* ========================
    Button Section
    ======================== */
@@ -940,6 +883,209 @@ body {
     
     .history-card {
         border: 1px solid CanvasText;
+    }
+}
+
+/* ========================
+   Idea Modal
+   ======================== */
+.idea-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+}
+
+.idea-modal.hidden {
+    display: none !important;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, var(--dark-bg-alt) 0%, var(--dark-bg) 100%);
+    border: 2px solid var(--purple);
+    border-radius: 16px;
+    box-shadow: 
+        0 0 20px rgba(185, 103, 255, 0.6),
+        0 0 40px rgba(185, 103, 255, 0.4),
+        0 0 60px rgba(255, 0, 255, 0.3),
+        0 0 80px rgba(0, 255, 255, 0.15),
+        inset 0 0 30px rgba(185, 103, 255, 0.1);
+    animation: modalGlow 3s ease-in-out infinite;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+@keyframes modalGlow {
+    0%, 100% {
+        box-shadow: 
+            0 0 20px rgba(185, 103, 255, 0.6),
+            0 0 40px rgba(185, 103, 255, 0.4),
+            0 0 60px rgba(255, 0, 255, 0.3),
+            0 0 80px rgba(0, 255, 255, 0.15),
+            inset 0 0 30px rgba(185, 103, 255, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 0 25px rgba(185, 103, 255, 0.7),
+            0 0 50px rgba(185, 103, 255, 0.5),
+            0 0 70px rgba(255, 0, 255, 0.4),
+            0 0 90px rgba(0, 255, 255, 0.2),
+            inset 0 0 35px rgba(185, 103, 255, 0.15);
+    }
+}
+
+.modal-close {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 2px solid var(--neon-pink);
+    border-radius: 8px;
+    color: var(--neon-pink);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1;
+}
+
+.modal-close:hover {
+    background: var(--neon-pink);
+    color: var(--dark-bg);
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.6);
+}
+
+.modal-close:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 2px;
+}
+
+.modal-title {
+    font-family: var(--font-pixel);
+    font-size: 0.75rem;
+    color: var(--neon-pink-light);
+    text-align: center;
+    text-transform: uppercase;
+    padding: var(--spacing-md);
+    padding-right: 50px;
+    text-shadow: 0 0 10px var(--neon-pink);
+    border-bottom: 1px solid rgba(185, 103, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    /* Custom scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: var(--purple) var(--dark-bg);
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--purple);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-pink);
+}
+
+.modal-text {
+    font-family: var(--font-pixel);
+    font-size: 0.625rem;
+    line-height: 2.2;
+    color: var(--cyan-light);
+    text-shadow: 0 0 6px rgba(1, 205, 254, 0.4);
+}
+
+/* History card clickable state */
+.history-card {
+    cursor: pointer;
+}
+
+.history-card:hover .history-card-text {
+    color: var(--text-primary);
+}
+
+/* Tablet modal */
+@media (min-width: 640px) {
+    .modal-title {
+        font-size: 1rem;
+    }
+    
+    .modal-text {
+        font-size: 0.75rem;
+    }
+    
+    .modal-content {
+        padding: var(--spacing-sm);
+    }
+}
+
+/* Desktop modal */
+@media (min-width: 1024px) {
+    .modal-content {
+        max-width: 700px;
+    }
+    
+    .modal-title {
+        font-size: 1.125rem;
+        padding: var(--spacing-lg);
+        padding-right: 60px;
+    }
+    
+    .modal-body {
+        padding: var(--spacing-lg);
+    }
+    
+    .modal-text {
+        font-size: 0.875rem;
+    }
+    
+    .modal-close {
+        top: var(--spacing-md);
+        right: var(--spacing-md);
+        width: 48px;
+        height: 48px;
+        font-size: 1.75rem;
     }
 }
 
