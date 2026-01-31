@@ -328,15 +328,147 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
 }
 
+/* Pixel Art Mascot - A cute retro robot */
 .loading-mascot {
-    width: 60px;
-    height: 60px;
-    background: var(--neon-pink);
-    border-radius: 50%;
-    animation: pulse 1s ease-in-out infinite;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: mascotBounce 0.5s ease-in-out infinite;
+}
+
+/* Pixel art using box-shadow technique
+   Each "pixel" is 5px x 5px
+   Creates a cute robot/alien mascot */
+.mascot-pixel {
+    width: 5px;
+    height: 5px;
+    background: transparent;
+    /* Robot mascot: 16x14 pixel grid 
+       Colors: cyan body, pink accents, white eyes */
+    box-shadow:
+        /* Row 1 - Antenna */
+        35px 0 0 var(--cyan),
+        /* Row 2 - Antenna top */
+        30px 5px 0 var(--neon-pink),
+        35px 5px 0 var(--cyan),
+        40px 5px 0 var(--neon-pink),
+        /* Row 3 - Head top */
+        20px 10px 0 var(--cyan),
+        25px 10px 0 var(--cyan),
+        30px 10px 0 var(--cyan),
+        35px 10px 0 var(--cyan),
+        40px 10px 0 var(--cyan),
+        45px 10px 0 var(--cyan),
+        50px 10px 0 var(--cyan),
+        /* Row 4 - Head with eyes */
+        15px 15px 0 var(--cyan),
+        20px 15px 0 var(--cyan),
+        25px 15px 0 #ffffff,
+        30px 15px 0 #000000,
+        35px 15px 0 var(--cyan),
+        40px 15px 0 #ffffff,
+        45px 15px 0 #000000,
+        50px 15px 0 var(--cyan),
+        55px 15px 0 var(--cyan),
+        /* Row 5 - Face */
+        15px 20px 0 var(--cyan),
+        20px 20px 0 var(--cyan),
+        25px 20px 0 var(--cyan),
+        30px 20px 0 var(--cyan),
+        35px 20px 0 var(--neon-pink),
+        40px 20px 0 var(--cyan),
+        45px 20px 0 var(--cyan),
+        50px 20px 0 var(--cyan),
+        55px 20px 0 var(--cyan),
+        /* Row 6 - Mouth */
+        20px 25px 0 var(--cyan),
+        25px 25px 0 var(--cyan),
+        30px 25px 0 var(--neon-pink-light),
+        35px 25px 0 var(--neon-pink-light),
+        40px 25px 0 var(--neon-pink-light),
+        45px 25px 0 var(--cyan),
+        50px 25px 0 var(--cyan),
+        /* Row 7 - Neck */
+        30px 30px 0 var(--cyan),
+        35px 30px 0 var(--cyan),
+        40px 30px 0 var(--cyan),
+        /* Row 8 - Arms + Body top */
+        10px 35px 0 var(--neon-pink),
+        15px 35px 0 var(--cyan),
+        20px 35px 0 var(--cyan),
+        25px 35px 0 var(--cyan),
+        30px 35px 0 var(--cyan),
+        35px 35px 0 var(--purple),
+        40px 35px 0 var(--cyan),
+        45px 35px 0 var(--cyan),
+        50px 35px 0 var(--cyan),
+        55px 35px 0 var(--cyan),
+        60px 35px 0 var(--neon-pink),
+        /* Row 9 - Arms + Body */
+        10px 40px 0 var(--neon-pink),
+        15px 40px 0 var(--cyan),
+        20px 40px 0 var(--cyan),
+        25px 40px 0 var(--cyan),
+        30px 40px 0 var(--purple),
+        35px 40px 0 var(--purple),
+        40px 40px 0 var(--purple),
+        45px 40px 0 var(--cyan),
+        50px 40px 0 var(--cyan),
+        55px 40px 0 var(--cyan),
+        60px 40px 0 var(--neon-pink),
+        /* Row 10 - Body */
+        20px 45px 0 var(--cyan),
+        25px 45px 0 var(--cyan),
+        30px 45px 0 var(--cyan),
+        35px 45px 0 var(--cyan),
+        40px 45px 0 var(--cyan),
+        45px 45px 0 var(--cyan),
+        50px 45px 0 var(--cyan),
+        /* Row 11 - Legs top */
+        25px 50px 0 var(--cyan),
+        30px 50px 0 var(--cyan),
+        40px 50px 0 var(--cyan),
+        45px 50px 0 var(--cyan),
+        /* Row 12 - Feet */
+        20px 55px 0 var(--neon-pink),
+        25px 55px 0 var(--cyan),
+        30px 55px 0 var(--cyan),
+        40px 55px 0 var(--cyan),
+        45px 55px 0 var(--cyan),
+        50px 55px 0 var(--neon-pink);
+    /* Glow effect for the mascot */
+    filter: drop-shadow(0 0 8px var(--cyan)) drop-shadow(0 0 15px var(--neon-pink));
+}
+
+/* Bouncing animation for the mascot */
+@keyframes mascotBounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-15px);
+    }
+}
+
+/* Dancing variation - alternating leg movement */
+@keyframes mascotDance {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    25% {
+        transform: translateY(-10px) rotate(-5deg);
+    }
+    50% {
+        transform: translateY(0) rotate(0deg);
+    }
+    75% {
+        transform: translateY(-10px) rotate(5deg);
+    }
 }
 
 .loading-text {
@@ -344,16 +476,16 @@ body {
     font-size: 0.625rem;
     color: var(--cyan);
     text-transform: uppercase;
+    animation: textPulse 1s ease-in-out infinite;
 }
 
-@keyframes pulse {
+/* Pulsing text animation */
+@keyframes textPulse {
     0%, 100% {
-        transform: scale(1);
         opacity: 1;
     }
     50% {
-        transform: scale(1.1);
-        opacity: 0.7;
+        opacity: 0.5;
     }
 }
 
@@ -436,8 +568,12 @@ body {
     }
     
     .loading-mascot {
-        width: 80px;
-        height: 80px;
+        width: 100px;
+        height: 100px;
+    }
+    
+    .mascot-pixel {
+        transform: scale(1.2);
     }
     
     .loading-text {

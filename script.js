@@ -1,10 +1,14 @@
 /**
- * I'm Boring - Retro Game Sounds
+ * I'm Boring - Retro Game Sounds & Loading Mascot
  * Web Audio API sound generator for 8-bit chiptune effects
+ * Plus loading mascot show/hide functionality
  */
 
 // Audio context - initialized on first user interaction
 let audioContext = null;
+
+// Loading container element reference
+let loadingContainer = null;
 
 /**
  * Initialize the AudioContext on first user interaction
@@ -256,6 +260,36 @@ const retroSounds = [
 function playRandomSound() {
     const randomIndex = Math.floor(Math.random() * retroSounds.length);
     retroSounds[randomIndex]();
+}
+
+/* ========================
+   Loading Mascot Functions
+   ======================== */
+
+/**
+ * Show the loading mascot
+ * Displays the animated pixel mascot in the loading container
+ */
+function showMascot() {
+    if (!loadingContainer) {
+        loadingContainer = document.getElementById('loading-container');
+    }
+    if (loadingContainer) {
+        loadingContainer.classList.remove('hidden');
+    }
+}
+
+/**
+ * Hide the loading mascot
+ * Hides the loading container with the mascot
+ */
+function hideMascot() {
+    if (!loadingContainer) {
+        loadingContainer = document.getElementById('loading-container');
+    }
+    if (loadingContainer) {
+        loadingContainer.classList.add('hidden');
+    }
 }
 
 // DOM Ready - Set up button click handler
